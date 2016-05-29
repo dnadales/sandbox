@@ -1,19 +1,22 @@
 -- |
 
-module LeavesOfATreeBench where
+--module LeavesOfATreeBench where
 
 import           Criterion.Main
 import           Data.BinTree
 
-mkTree :: [a] -> BinTree a
-mkTree [] = Nil
-mkTree (x:xs) = Fork x (mkTree lxs) (mkTree rxs)
-  where (lxs, rxs) = splitAt ((length xs + 1) `div` 2) xs
+tree0 :: BinTree Integer
+tree0 = mkTree [0 .. 1000]
+
+tree1 :: BinTree Integer
+tree1 = mkTree [0 .. 1000000]
 
 main :: IO ()
 main = defaultMain [
   bgroup "leaves"
-    [ bench "tree 0" $ whnf leaves (mkTree ([0 .. 20] :: [Integer]))
-    , bench "tree 1" $ whnf leaves (mkTree ([0 .. 200] :: [Integer]))
+    [ bench "leaves tree 0" $ whnf leaves tree0
+    , bench "leaves tree 1" $ whnf leaves tree1
+    , bench "leaves with continuation tree 0" $ whnf leaves' tree0
+    , bench "leaves with continuation tree 1" $ whnf leaves' tree1
     ]
   ]
