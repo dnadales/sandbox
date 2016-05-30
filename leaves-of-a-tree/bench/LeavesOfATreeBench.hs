@@ -1,7 +1,3 @@
--- |
-
---module LeavesOfATreeBench where
-
 import           Criterion.Main
 import           Data.BinTree
 
@@ -11,14 +7,22 @@ tree0 = mkTree [0 .. 1000]
 tree1 :: BinTree Integer
 tree1 = mkTree [0 .. 1000000]
 
+treeE0 :: BinTreeE Integer
+treeE0 = mkTreeE [0 .. 1000]
+
+treeE1 :: BinTreeE Integer
+treeE1 = mkTreeE [0 .. 1000000]
+
 main :: IO ()
 main = defaultMain [
   bgroup "leaves" [
-      bench "lazy state monad tree 0" (nf leavesS tree0)
-    , bench "lazy state monad tree 1" (nf leavesS tree1)
-    , bench "leaves tree 0" $ nf leaves tree0
-    , bench "leaves tree 1" $ nf leaves tree1
-    , bench "leaves with continuation tree 0" $ nf leaves' tree0
-    , bench "leaves with continuation tree 1" $ nf leaves' tree1
+      bench "catamorphism with standard list/10^3 nodes" (nf leavesCata treeE0)
+    , bench "catamorphism with standard list/10^6 nodes" (nf leavesCata treeE1)
+    , bench "lazy state monad/10^3 nodes" (nf leavesS tree0)
+    , bench "lazy state monad/10^6 nodes" (nf leavesS tree1)
+    , bench "recursion with standard list/10^3 nodes" (nf leaves tree0)
+    , bench "recursion with standard list/10^6 nodes" (nf leaves tree1)
+    , bench "recursion with difference list/10^3 nodes" (nf leaves' tree0)
+    , bench "recursion with difference list/10^6 nodes" (nf leaves' tree1)
     ]
   ]
