@@ -2,8 +2,8 @@
 
 module Data.BinTree where
 
-import Control.Monad.State
-import Data.Functor.Fixedpoint
+import           Control.Monad.State
+import           Data.Functor.Fixedpoint
 
 data BinTree a = Nil | Fork a (BinTree a) (BinTree a)
   deriving (Show, Eq)
@@ -14,6 +14,13 @@ leaves :: BinTree a -> [a]
 leaves Nil = []
 leaves (Fork x Nil Nil) = [x]
 leaves (Fork _ lt rt) = leaves lt ++ leaves rt
+
+leavesT :: BinTree a -> [a]
+leavesT = leavesT' []
+  where
+  leavesT' xs Nil = xs
+  leavesT' xs (Fork x Nil Nil) = x : xs
+  leavesT' xs (Fork _ lt rt) = leavesT' (leavesT' xs lt) rt
 
 -- | Recursion using difference lists.
 leavesC :: BinTree a -> [a] -> [a]

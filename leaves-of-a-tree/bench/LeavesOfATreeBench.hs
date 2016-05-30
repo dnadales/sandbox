@@ -22,6 +22,8 @@ main = defaultMain [
     , bench "lazy state monad/10^6 nodes" (nf leavesS tree1)
     , bench "recursion with standard list/10^3 nodes" (nf leaves tree0)
     , bench "recursion with standard list/10^6 nodes" (nf leaves tree1)
+    , bench "tail recursion with standard list/10^3 nodes" (nf leavesT tree0)
+    , bench "tail recursion with standard list/10^6 nodes" (nf leavesT tree1)
     , bench "recursion with difference list/10^3 nodes" (nf leaves' tree0)
     , bench "recursion with difference list/10^6 nodes" (nf leaves' tree1)
     ]
