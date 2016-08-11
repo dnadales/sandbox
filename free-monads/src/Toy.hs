@@ -2,10 +2,16 @@
 
 module Toy where
 
+import           Control.Monad.Free
+
 data Toy b next =
   Output b next -- Output b and perform the next aciton.
   | Bell next   -- Rings the bell and perform the next action.
   | Done        -- End of execution.
+
+
+-- | Let's write an interpreter for this language. We simply convert this to a String.
+interpret :: Show a => Fix (Toy a) -> String
 
 -- | Try some examples in the REPL:
 --
@@ -137,11 +143,168 @@ data ExprF a = ConstF Int
 -- > Fix (Fix (ConstF 1) `AddF` Fix (ConstF 2)) :: Fix ExprF
 
 
+-- In the same way, we can find a fix-point for the types that our interpreter
+-- takes:
+--
+-- > *Main Toy> :t Fx (Done)
+-- > Fx (Done) :: Fix (Toy b)
+-- > *Main Toy> :t Fx (Bell (Fx (Done)))
+-- > Fx (Bell (Fx (Done))) :: Fix (Toy b)
+-- > *Main Toy> :t Fx (Output 'a' (Fx (Bell (Fx (Done)))))
+-- > Fx (Output 'a' (Fx (Bell (Fx (Done))))) :: Fix (Toy Char)
+--
+-- Then Fix can be used to define a type for our interpreter.
 
+-- Ok, having seen how Fix works, let's write the interpreter:
+--interpret Fx (FixDone)
+interpret (Fx Done) = "done\n"
+interpret (Fx (Bell next)) = "ding!\n" ++ interpret next
+interpret (Fx (Output a next)) = show a ++ "\n"++ interpret next
 
+-- It works!
+--
+-- > *Toy> putStr  $ interpret $  Fx (Output 'a' (Fx (Bell (Fx (Done)))))
+-- > 'a'
+-- > ding!
+-- > done
+--
+-- But what if we want to pass an incomplete program? We cannot interpret this:
+--
+-- > *Toy> interpret $  Fx (Output 'a' (Fx (Bell )))
+-- >
+-- > <interactive>:27:34:
+-- >     Couldn't match expected type ‘Toy Char (Fix (Toy Char))’
+-- >                 with actual type ‘next0 -> Toy b0 next0’
+-- >     Probable cause: ‘Bell’ is applied to too few arguments
+-- >     In the first argument of ‘Fx’, namely ‘(Bell)’
+-- >     In the second argument of ‘Output’, namely ‘(Fx (Bell))’
+--
+-- So let's define a data type to write incomplete Toy programs, or
+-- expressions.
 
+-- (?) Why do we need the `e` here?
+data FixE f e = FxE (f (FixE f e)) | Throw e
 
+-- ...
 
+-- Does catch type-checks?
+catch :: (Functor f) =>
+         FixE f e1 -> (e1 -> FixE f e2) -> FixE f e2
+catch (Throw e) g = g e -- ::? FixE f e2, well yes, look at the type of `e` and `g`.
+
+-- For the second expression we have:
+--
+-- > x :: f (FixE f e)
+-- > flip catch g :: FixE f e1 -> FixE f e2
+-- > fmap :: (Functor f) -> (FixE f e1 -> FixE f e2) -> f (FixE f e1) -> f (FixE f e2)
+-- > fmap (flip catch g) x :: f (FixE f e2)
+-- > FxE (fmap (flip catch g) x) :: FxE f e2
+--
+catch (FxE x) g = FxE (fmap (flip catch g) x)
+
+-- The we need to define an instance of functor:
+instance Functor (Toy b) where
+  fmap f (Output x next) = Output x (f next)
+  fmap f (Bell     next) = Bell     (f next)
+  fmap _  Done           = Done
+
+data Hole = Hole
+
+--  Let's use this to defini incomplete programs:
+--
+-- > *Toy> :t FxE (Output 'a' (Throw Hole))
+-- > FxE (Output 'a' (Throw Hole)) :: FixE (Toy Char) Hole
+--
+-- > *Toy> :t FxE (Output 'a' (Throw Hole)) `catch` (\_ -> FxE Done)
+-- > FxE (Output 'a' (Throw Hole)) `catch` (\_ -> FxE Done)
+-- >  :: FixE (Toy Char) e2
+--
+
+-- Can FixE f be defined as a functor? The definition of functor I came up with
+-- applies function g to the exception value.
+--
+-- Note that in this case, the parameter of (FixE f) is an exeption!
+instance (Functor f) => Functor (FixE f) where
+  -- (?) What about the type parameter?
+  -- (a -> b) -> (FixE f) a -> (FixE f) b
+ fmap g (Throw e) = Throw (g e)
+ -- In this definition do not confuse the fmap of FixE with the fmap of functor
+ -- g (used at the lambda expression).
+ -- fmap g (FxE fs) = FxE (fmap (\fxe -> fmap g fxe) fs)
+ -- Note that the above can be written as:
+ fmap g (FxE fs) = FxE (fmap (fmap g) fs)
+
+ -- EXERCISE: Does this definition satisfies the functor laws?
+
+instance (Functor f) => Applicative (FixE f) where
+  -- The following implementation is easy!
+  pure e = Throw e
+  -- What about <*>?
+  --
+  -- (<*>) :: (FixE f) (a -> b) -> (FixE f) a -> (FixE f) b
+  --
+  -- Note that the first argument of <*> is a FixE value that has a function as
+  -- exception type.
+  (<*>) (Throw eab) (Throw a) = Throw (eab a)
+  -- (<*>) (Throw eab) (FxE fs) = FxE (fmap (\fxe -> (Throw eab) <*> fxe) fs)
+  (<*>) (Throw eab) (FxE fs) = FxE (fmap ((Throw eab) <*>) fs)
+  -- (<*>) (FxE fs) fxa = FxE (fmap (\fxe -> fxe <*> fxa) fs)
+  (<*>) (FxE fs) fxa = FxE (fmap (<*> fxa) fs)
+
+-- How would you define a monad instance of FixE?
+instance (Functor f) => Monad (FixE f) where
+  return = pure
+  -- (>>=) :: (FixE f) a -> (a -> (FixE f) b) -> (FixE f) b
+  (Throw a) >>= f = f a
+  -- (FxE fs) >>= f = FxE (fmap (\fxe -> fxe >>= f) fs)
+  -- Note that the above can be written as:
+  (FxE fs) >>= f = FxE (fmap (>>= f) fs)
+
+-- Ok, we defined out instance of monad for 'FixE', but it turns out that we
+-- already have an isomorphic type, called... drums.... "The free monad!"
+
+-- To be able to instance this, you require to define applicative and functor for (Free f)
+--
+-- > instance (Functor f) => Monad (Free f) where
+-- >     return = Pure
+-- >     (Free x) >>= f = Free (fmap (>>= f) x)
+-- >     (Pure r) >>= f = f r
+--
+-- So we'll just import 'Control.Monad.Free'
+
+-- We want to wrap out Toy constructs into free monads. Doing this requires
+-- some boilerplate:
+--
+-- > output :: a -> Free (Toy a) ()
+-- > output x = Free (Output x (Pure ()))
+-- >
+-- > bell :: Free (Toy a) ()
+-- > bell = Free (Bell (Pure ()))
+-- >
+-- > done :: Free (Toy a) r
+-- > done = Free Done
+--
+-- We can use 'liftF' to scrap this boilerplate:
+--
+-- > liftF :: (Functor f, MonadFree f m) => f a -> m a
+--
+-- Here m is 'Free' (our monad) and 'Toy a' is f (our functor).
+
+output :: a -> Free (Toy a) ()
+output x = liftF ((Output x) ())
+
+-- Next: we want to get here:
+program :: Free (Toy Char) r
+program = do
+  subroutine
+  bell
+  done
+
+-- TODO: write a version of the interpreter 'interpret' that uses the free
+-- monad.
+interpretF :: Show a => Fix (Toy a) -> String
+
+-- TODO: Does 'done' swallows the commands? Why?
 
 -- For more info see:
 -- https://goo.gl/CcfCPX
