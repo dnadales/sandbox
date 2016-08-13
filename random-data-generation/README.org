@@ -42,7 +42,7 @@
   #+END_SRC
 
   Mmmm, not so nice. We notice two problems:
-  0. [@0] the strings are not very readable,
+  0. the strings are not very readable,
   1. and the size of the objects is too big.
 
 
@@ -53,6 +53,57 @@
   of our library.
 
 * Passing configuration to our generator
+  We need basically a configuration that:
+  - defines the universe of possible strings.
+  - returns a maximum size for our objects.
+
+    
+  Let's create a type-class for this:
+  #+BEGIN_SRC haskell
+  class Configuration c where
+  -- | The universe of valid strings
+  validString :: c -> Gen String
+  -- | The maximum size of the generated objects.
+  maxSize :: c -> Int
+  #+END_SRC
+
+  Then a configuration could look like this:
+  #+BEGIN_SRC haskell
+    data Conf = Conf { _validStrings :: [String]
+                     , _maxSize      :: Int
+                     }
+
+    instance Configuration Conf where
+      validString c = elements (_validStrings c)
+      maxSize c = _maxSize c
+
+    mConf :: Conf
+    mConf = Conf ["foo", "bar", "baz"] 4  
+  #+END_SRC
+
   
+  Then we could define an arbitrary generator as follows:
+  #+BEGIN_SRC haskell
+    arbitraryE :: (Configuration c) => c -> Gen JValue
+    arbitraryE conf = oneof [ return JNull
+                            , liftM JString validStr
+                            , liftM JBool arbitrary
+                            , liftM JObject (vectorOf n $ liftM2 (,) validStr (arbitraryE conf))
+                            , liftM JArray (vectorOf n (arbitraryE conf))
+                            ]
+      where validStr = validString conf
+            n = maxSize conf  
+  #+END_SRC
+
+  If we extract some samples of the generator, we see that our objects have a
+  limited number of attributes, our arrays have a limited size, and the strings
+  are taken from the set of desired values. However two problems remain:
+  1. the total object has an unbounded size,
+  2. and we are passing the configuration around and it is not used in 3/5 of
+     our cases. This is fine if we have a small number of constructors in our
+     data-types, but it can easily get cumbersome.
+
+*** Configuration as a environment
+
 * Adding an object pool
 
