@@ -23,17 +23,11 @@ attributes _ = []
 -- Note that the instance of Arbitrary has to be declared here:
 --     http://stackoverflow.com/questions/3079537/orphaned-instances-in-haskell
 
-genSafeChar :: Gen Char
-genSafeChar = elements ['a'..'z']
-
-genSafeString :: Gen String
-genSafeString = listOf genSafeChar
-
 instance Arbitrary JValue where
   arbitrary = oneof [ return JNull
-                    , liftM JString genSafeString
+                    , liftM JString arbitrary
                     , liftM JBool arbitrary
-                    , liftM JObject (listOf $ liftM2 (,) genSafeString arbitrary)
+                    , liftM JObject (listOf $ liftM2 (,) arbitrary arbitrary)
                     , liftM JArray (listOf arbitrary)
                     ]
 

@@ -1,3 +1,58 @@
 
 * The problem
-  Generate random data for the ~JSON~ data type.
+  Generate random data for the ~JSON~ data type. Based on a true story.
+
+* First approach
+  We can readily define an instance for ~Arbitrary~ that allows us to create
+  random ~JSON~ objects:
+  #+BEGIN_SRC haskell
+    instance Arbitrary JValue where
+      arbitrary = oneof [ return JNull
+                        , liftM JString arbitrary
+                        , liftM JBool arbitrary
+                        , liftM JObject (listOf $ liftM2 (,) arbitrary arbitrary)
+                        , liftM JArray (listOf arbitrary)
+                        ]  
+  #+END_SRC
+
+  We're all set to generate some JSON objects! Let's see what do we get:
+
+  #+BEGIN_SRC haskell
+    ,*Main Data.JSON Test.QuickCheck> (generate  (arbitrary :: Gen JValue))
+    JNull
+
+    ,*Main Data.JSON Test.QuickCheck> (generate  (arbitrary :: Gen JValue))
+    JObject []
+
+    ,*Main Data.JSON Test.QuickCheck> (generate  (arbitrary :: Gen JValue))
+    JString "\169\147\246\DC1\184&;\214f"
+
+    ,*Main Data.JSON Test.QuickCheck> (generate  (arbitrary :: Gen JValue))
+    JObject [("Yw\ENQ\EOT~\ETB\ahEj5\145\243F\DC2z]\ESC",JObject
+    [("!\SIL_\n\236\187A\177\179\STX{\251\166\164",JArray [JBool
+    False,JNull,JObject [("_\b",JObject
+    [("q\v\225u\DC2#q\ETX\242\170nAOM!MH\230n\190\DC2",JString
+    "zj\255:\DC1\a\209&8$h5\169\246U>\230C"),("\173",JNull),("s\137uN3",JBool
+    True),("\165\255\142z\132\130>/hM\EOTx\134(\GS,\226I",JBool
+    False),("\221B\US\192\198_\194G\198\GS",JObject
+    [("|\143Z\243_\SIk\203\198`t\ACK",JBool
+    True),("(~\142\237C\152\171\253\r<\"\RS%\DC1\178E+Ax4\CAN\216Y\EM'\162",JString
+    "@x\SOH\DC1\206Uaf$\224\ETB%\236A\221A\UStq\ESC\196\183Y{\vQ/NlT"),
+   ... output continues ...
+  #+END_SRC
+
+  Mmmm, not so nice. We notice two problems:
+  0. [@0] the strings are not very readable,
+  1. and the size of the objects is too big.
+
+
+  We could limit the universe of string values, and the size of the objects
+  directly in our library. However, this requires to take an arbitrary (no pun
+  intended) decision about these boundaries, and we are limiting the users of
+  our library. It seems better to allow these limits to be passed as parameters
+  of our library.
+
+* Passing configuration to our generator
+  
+* Adding an object pool
+
