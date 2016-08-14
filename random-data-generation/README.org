@@ -60,11 +60,13 @@
     
   Let's create a type-class for this:
   #+BEGIN_SRC haskell
-  class Configuration c where
-  -- | The universe of valid strings
-  validString :: c -> Gen String
-  -- | The maximum size of the generated objects.
-  maxSize :: c -> Int
+    class Configuration c where
+      -- | The universe of valid strings.
+      validString :: c -> Gen String
+      -- | The maximum size of the generated objects.
+      maxSize :: c -> Int
+      -- | Update the maximum size.
+      updateMaxSize :: (Int -> Int) -> c -> c
   #+END_SRC
 
   Then a configuration could look like this:
@@ -76,34 +78,44 @@
     instance Configuration Conf where
       validString c = elements (_validStrings c)
       maxSize c = _maxSize c
+      updateMaxSize f c = c {_maxSize = (f . _maxSize) c}
 
     mConf :: Conf
-    mConf = Conf ["foo", "bar", "baz"] 4  
+    mConf = Conf ["foo", "bar", "baz"] 4
   #+END_SRC
 
   
   Then we could define an arbitrary generator as follows:
   #+BEGIN_SRC haskell
     arbitraryE :: (Configuration c) => c -> Gen JValue
-    arbitraryE conf = oneof [ return JNull
-                            , liftM JString validStr
-                            , liftM JBool arbitrary
-                            , liftM JObject (vectorOf n $ liftM2 (,) validStr (arbitraryE conf))
-                            , liftM JArray (vectorOf n (arbitraryE conf))
-                            ]
+    arbitraryE conf =
+      if (n == 0) then return JNull
+      else oneof [ return JNull
+                 , liftM JString validStr
+                 , liftM JBool arbitrary
+                 , liftM JObject (vectorOf n $ liftM2 (,) validStr (arbitraryE conf'))
+                 , liftM JArray (vectorOf n (arbitraryE conf'))
+                 ]
       where validStr = validString conf
-            n = maxSize conf  
+            n = maxSize conf
+            conf' = updateMaxSize (\x -> x - 1) conf
   #+END_SRC
 
   If we extract some samples of the generator, we see that our objects have a
   limited number of attributes, our arrays have a limited size, and the strings
-  are taken from the set of desired values. However two problems remain:
-  1. the total object has an unbounded size,
-  2. and we are passing the configuration around and it is not used in 3/5 of
-     our cases. This is fine if we have a small number of constructors in our
-     data-types, but it can easily get cumbersome.
+  are taken from the set of desired values. However a problem remains, we are
+  passing the configuration around and it is not used in 3/5 of our cases. This
+  is fine if we have a small number of constructors in our data-types, but it
+  can easily get cumbersome.
+
+  Since ~arbitraryE~ is a function that depends on an environment, we can make
+  use of the [[https://hackage.haskell.org/package/mtl-2.2.1/docs/Control-Monad-Reader.html][Reader Monad]].
 
 *** Configuration as a environment
 
 * Adding an object pool
-
+  Now consider the case when we do not want to repeat the objects that we
+  randomly choose. You could think of more complex scenarios where the choice
+  of an object limits the set of possible objects (for instance, selecting a
+  random artist limits the set of possible albums to those that belong to that
+  artist).

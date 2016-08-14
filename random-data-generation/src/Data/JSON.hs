@@ -3,7 +3,8 @@
 module Data.JSON where
 
 import           Control.Monad
-import           Test.QuickCheck hiding (maxSize)
+import           Control.Monad.Reader
+import           Test.QuickCheck      hiding (maxSize)
 
 data JValue = JNull
             | JString String
@@ -42,22 +43,12 @@ attributes _ = []
 -- * Second approach:
 
 class Configuration c where
-  -- | The universe of valid strings
+  -- | The universe of valid strings.
   validString :: c -> Gen String
   -- | The maximum size of the generated objects.
   maxSize :: c -> Int
-
-
-arbitraryE :: (Configuration c) => c -> Gen JValue
-arbitraryE conf = oneof [ return JNull
-                        , liftM JString validStr
-                        , liftM JBool arbitrary
-                        , liftM JObject (vectorOf n $ liftM2 (,) validStr (arbitraryE conf))
-                        , liftM JArray (vectorOf n (arbitraryE conf))
-                        ]
-  where validStr = validString conf
-        n = maxSize conf
-
+  -- | Update the maximum size.
+  updateMaxSize :: (Int -> Int) -> c -> c
 
 data Conf = Conf { _validStrings :: [String]
                  , _maxSize      :: Int
@@ -66,6 +57,55 @@ data Conf = Conf { _validStrings :: [String]
 instance Configuration Conf where
   validString c = elements (_validStrings c)
   maxSize c = _maxSize c
+  updateMaxSize f c = c {_maxSize = (f . _maxSize) c}
 
 mConf :: Conf
 mConf = Conf ["foo", "bar", "baz"] 4
+
+arbitraryC :: (Configuration c) => c -> Gen JValue
+arbitraryC conf =
+  if (n == 0)
+  then return JNull
+  else oneof [ return JNull
+             , liftM JString validStr
+             , liftM JBool arbitrary
+             , liftM JObject (vectorOf n $ liftM2 (,) validStr (arbitraryC conf'))
+             , liftM JArray (vectorOf n (arbitraryC conf'))
+             ]
+  where validStr = validString conf
+        n = maxSize conf
+        conf' = updateMaxSize (\x -> x - 1) conf
+
+type GenE c a = ReaderT c Gen a
+
+-- * Using the reader Monad to pass the environment around.
+arbitraryE :: (Configuration c) => GenE c JValue
+arbitraryE =
+  asks (maxSize) >>= \n -> -- Here we ask the max size to the environment ::
+                           -- ReaderT c Gen Int
+  asks (validString) >>= \validStr ->
+    if (n == 0)
+    then return (JBool True)
+    else local (updateMaxSize (+(-1))) $
+         mapReaderT (\gen -> oneof [ return JNull
+                                   , liftM JString validStr
+                                   , liftM JBool arbitrary
+                                   , liftM JObject (vectorOf n $ liftM2 (,) validStr (gen))
+                                   , liftM JArray (vectorOf n (gen))
+                                   ]) $
+         arbitraryE
+
+
+-- Now we have a lot of complexity! Is it worth it?
+
+getRandomJSON ::  IO JValue
+getRandomJSON = generate $ runReaderT arbitraryE mConf
+
+-- To print a value use:
+--
+-- > getRandomJSON >>= putStrLn . show
+--
+
+-- Ok, next, we want to change the behavior, so that strings are not repeated!
+
+
