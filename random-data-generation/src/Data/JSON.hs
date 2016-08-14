@@ -4,7 +4,12 @@ module Data.JSON where
 
 import           Control.Monad
 import           Control.Monad.Reader
-import           Test.QuickCheck      hiding (maxSize)
+import           Control.Monad.State.Lazy
+import           Data.Functor.Identity
+import           Data.List
+import           Data.Set                 (Set)
+import qualified Data.Set                 as Set
+import           Test.QuickCheck          hiding (maxSize)
 
 data JValue = JNull
             | JString String
@@ -108,4 +113,101 @@ getRandomJSON = generate $ runReaderT arbitraryE mConf
 
 -- Ok, next, we want to change the behavior, so that strings are not repeated!
 
+-- * State
+-- class GenState s where
+--   -- | Returns a string from the state, and removes the string from the pool of
+--   -- available strings.
+--   getString :: s -> (String, s)
 
+newtype GenState = St {getStrings :: [String]}
+  deriving (Show)
+
+mState :: GenState
+mState = St ["foo", "bar", "baz"]
+
+-- |  Removes a String from the state.
+removeString :: String -> GenState -> GenState
+removeString str (St xs) = St $ delete str xs
+
+-- genString :: State GenState (Gen String)
+-- genString =
+--   --get >>= \st -> oneof (getStrings st)
+--   -- get >>= liftM getStrings >>= \strings ->
+--   -- elements strings
+--   gets getStrings >>= \strings ->
+--   return (elements strings) -- >>= \gen -> ... it seems I have to do the choice here!
+--   -- Damn it is difficutl!
+--   put (strings - string) >>
+
+-- Can we define a function:
+-- (Identity ((), s) -> Gen (String, s))
+genStringT ::  Identity (GenState, GenState) -> Gen (String, GenState)
+genStringT iSt =
+  elements  (getStrings st) >>= \str ->
+  return (str, removeString str st)
+  where (_, st) = runIdentity iSt
+
+-- What if you invert things?
+-- genString :: Gen (State GenState String)
+-- The generator still needs to be bootstrapped by the set of valid strings!
+
+genString :: StateT GenState Gen String
+genString =
+  mapStateT genStringT get
+  -- get :: StateT GenState Identity GenState
+
+genTwoStrings :: StateT GenState Gen (String, String)
+genTwoStrings = liftM2 (,) genString genString
+
+getRandomStr :: IO (String, GenState)
+getRandomStr = generate $ runStateT genString mState
+
+getTwoRandomStrs :: IO ((String, String), GenState)
+getTwoRandomStrs = generate $ runStateT genTwoStrings mState
+
+showRandomStr :: IO ()
+showRandomStr = getRandomStr >>= putStrLn . show
+
+showTwoRandomStr :: IO ()
+showTwoRandomStr = getTwoRandomStrs >>= putStrLn . show
+
+-- >>= \st -> return st >>
+
+--  ??? put St []
+
+  -- How to modify the state?
+  -- :: Gen String  .... -> String -> GenState -> GenState
+
+-- elements :: [a] -> Gen [a]
+--  (Gen ((), s) -> Gen (String, s))
+
+--mapStateT :: (Gen ([String], s) -> Gen (String, s)) -> StateT s m a -> StateT s n b
+
+{--
+> :t get :: StateT GenState Gen GenState
+get :: StateT GenState Gen GenState :: StateT GenState Gen GenState
+
+> liftM getStrings
+
+Actual type: StateT GenState Gen GenState
+                   -> StateT GenState Gen [String]
+
+> :t get >>= liftM getStrings :: StateT GenState Gen [String]
+
+<interactive>:1:1:
+    Couldn't match type ‘GenState’ with ‘StateT GenState Gen GenState’
+    arising from a functional dependency between:
+      constraint ‘MonadState
+                    (StateT GenState Gen GenState) (StateT GenState Gen)’
+        arising from a use of ‘get’
+      instance ‘MonadState s (StateT s m)’ at <no location info>
+    In the first argument of ‘(>>=)’, namely ‘get’
+    In the expression:
+        get >>= liftM getStrings :: StateT GenState Gen [String]
+--}
+
+
+
+
+arbitraryS :: StateT GenState Gen JValue
+arbitraryS = undefined
