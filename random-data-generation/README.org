@@ -119,3 +119,5 @@
   of an object limits the set of possible objects (for instance, selecting a
   random artist limits the set of possible albums to those that belong to that
   artist).
+
+  How to define such a generator in Haskell?
