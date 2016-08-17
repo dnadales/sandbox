@@ -121,3 +121,48 @@
   artist).
 
   How to define such a generator in Haskell?
+
+  Let's start with the simple case, when we want to generate random strings
+  from an object pool, using for this the functions defined at ~Gen~ (from
+  module ~Test.QuickCheck~).
+
+  Assume we have a ~GenState~ data-type, which contains the pool of possible
+  strings to choose from. We want a function, say ~arbitraryStringS~, that takes such
+  a resource pool, and returns a generator of strings in the resource pool.
+
+  The question is, what would be the type of such a function. Out first attempt
+  gives a function with this signature:
+  
+  #+BEGIN_SRC haskell
+  arbitraryStringS :: GenState -> (Gen String, GenState)
+  #+END_SRC
+
+  The first thing we notice is that the type of ~arbitraryStringS~ looks like the
+  function contained in the state monad.
+
+  The problem with this is that we need the value returned by the generator to
+  update the state. We canot extract a value from the generator without calling
+  sample, or generate, which will land us in the ~IO~ monad.
+
+  There is a monad transformer, called ~StateT~, that have functions that allow
+  us to manipulate the inner-monad:
+
+  #+BEGIN_SRC haskell
+  lift :: Monad m => m a -> t m a  -- StateT is an instance of MonadTrans
+  mapStateT :: (m (a, s) -> n (b, s)) -> StateT s m a -> StateT s n b
+  #+END_SRC
+
+  Using such a monad requires to adapt the signature of ~arbitraryStringS~:
+  #+BEGIN_SRC haskell
+  arbitraryStringS :: StateT GenState Gen String
+  #+END_SRC
+  If we want to use ~mapStateT~ above, we will need to write functions with
+  type:
+  #+BEGIN_SRC haskell
+  Gen (a, GenState) -> Gen (b, GenState)
+  #+END_SRC
+  The fist thing to notice is that we will be returning generators of a pairs
+  containing a string and a state. This makes more sense, since the resulting
+  state depends on the string chosen by the generator.
+
+  

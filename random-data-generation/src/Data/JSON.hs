@@ -129,46 +129,9 @@ mState = St ["foo", "bar", "baz"]
 removeString :: String -> GenState -> GenState
 removeString str (St xs) = St $ delete str xs
 
-
 -- ** First attempt
 
--- | How would we define this (two times) stateful generator for strings? Our
--- first attempt is a function with this signature:
---
--- > genString :: GenState -> (Gen JValue, GenState)
---
--- This looks pretty much like a state monad!
---
--- The problem with this is that we need the value returned by the generator to
--- update the state. We canot extract a value from the generator without
--- calling sample, or generate, which will land us in the IO monad.
-
--- genString :: State GenState (Gen String)
--- genString =
---   --get >>= \st -> oneof (getStrings st)
---   -- get >>= liftM getStrings >>= \strings ->
---   -- elements strings
---   gets getStrings >>= \strings ->
---   return (elements strings) -- >>= \gen -> ... it seems I have to do the choice here!
---   -- Damn it is difficutl!
---   put (strings - string) >>
-
--- What if you invert things?
--- genString :: Gen (State GenState String)
--- The generator still needs to be bootstrapped by the set of valid strings!
-
--- We could use the `StateT` instead, which has an inner monad.
-
--- If we look at which functions allow us to manipulate the inner monad, we have:
--- - lift :: Monad m => m a -> t m a (StateT is an instance of MonadTrans)
--- - mapStateT :: (m (a, s) -> n (b, s)) -> StateT s m a -> StateT s n b
---
--- So it seems we are going to have to use functions with type:
---
--- > :: Gen (a, GenState) -> Gen (b, GenState)
-
 -- Can we define a function:
--- (Identity ((), s) -> Gen (String, s))
 stringGenS ::  Gen (a, GenState) -> Gen (String, GenState)
 -- This is a bit ackward because I'm ignoring the first element returned by the
 -- generator.
@@ -177,16 +140,15 @@ stringGenS genStSt =
   elements (getStrings st) >>= \str ->
   return (str, removeString str st)
 
-arbitraryStringSt :: StateT GenState Gen String
-arbitraryStringSt =
+arbitraryStringS :: StateT GenState Gen String
+arbitraryStringS =
   mapStateT stringGenS get
-  -- get :: StateT GenState Identity GenState
 
 genTwoStrings :: StateT GenState Gen (String, String)
-genTwoStrings = liftM2 (,) arbitraryStringSt arbitraryStringSt
+genTwoStrings = liftM2 (,) arbitraryStringS arbitraryStringS
 
 getRandomStr :: IO (String, GenState)
-getRandomStr = generate $ runStateT arbitraryStringSt mState
+getRandomStr = generate $ runStateT arbitraryStringS mState
 
 getTwoRandomStrs :: IO ((String, String), GenState)
 getTwoRandomStrs = generate $ runStateT genTwoStrings mState
@@ -199,7 +161,7 @@ showTwoRandomStr = getTwoRandomStrs >>= putStrLn . show
 
 threeRandomStr :: StateT GenState Gen [String]
 threeRandomStr =
-  sequence [arbitraryStringSt, arbitraryStringSt, arbitraryStringSt]
+  sequence [arbitraryStringS, arbitraryStringS, arbitraryStringS]
 
 showThreeRandomStr :: IO ()
 showThreeRandomStr = (generate $ runStateT threeRandomStr mState) >>= putStrLn .show
@@ -223,9 +185,9 @@ arbitraryS :: StateT GenState Gen JValue
 -- Can we use `oneof` here?
 arbitraryS =
   oneofS [return JNull
-         , JString <$> arbitraryStringSt
+         , JString <$> arbitraryStringS
          , JArray <$> listSOf arbitraryS
-         , JObject <$> (listSOf $ liftM2 (,)  arbitraryStringSt arbitraryS)
+         , JObject <$> (listSOf $ liftM2 (,)  arbitraryStringS arbitraryS)
          ]
 
 -- What we need is our stateful version of oneof:
@@ -247,13 +209,13 @@ gListSOf xs gen = do
     x <- gen
     gListSOf (xs ++ [x]) gen
 
---  elements [lift $ return JNull, JString <$> arbitraryStringSt]
+--  elements [lift $ return JNull, JString <$> arbitraryStringS]
 --  >>= \gens -> lift $ elements  gens
 
 arbitraries :: StateT GenState Gen [JValue]
 arbitraries =
   sequence [ return JNull
-           , arbitraryStringSt >>= \str -> return (JString str)
+           , arbitraryStringS >>= \str -> return (JString str)
            ]
 
 showRandomJSon :: IO ()
