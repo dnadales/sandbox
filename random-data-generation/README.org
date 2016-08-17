@@ -242,8 +242,9 @@
 
   We're getting closer. How we combine this with the reader monad?
 
-
-*** Next combining this with a writer monad!
+*** Other challenges
+***** Combining this with a writer monad!
+***** Think of laws that have to hold for this implementation
 
 * Footnotes
 

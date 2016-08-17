@@ -1,4 +1,4 @@
--- | A simple counter.
+-- | A simple counter. Wrong implementation.
 
 module Counter where
 
