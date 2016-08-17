@@ -1,6 +1,27 @@
 
 * The problem
-  Generate random data for the ~JSON~ data type. Based on a true story.
+  TODO: give some motivation. For instance, we generate a set of objects via a
+  web-service, by POSTING JSON objects. Afterwards, we want to generate GET
+  requests, but only with objects that where previously created. We want to do
+  this in a compositional way, without altering the generators.
+
+  ...Based on a true story...
+
+  Generate random data for the ~JSON~ data-type, in such a way that only
+  strings from a certain strings-pool are used, and arrays of certain maximum
+  depth are generated. 
+
+  We want to define a generator that can be used as follows:
+  #+BEGIN_SRC haskell
+  arbitraryJson maxLength StringPool
+  #+END_SRC
+  where ~maxLength~ is the maximum length of the generated arrays, and
+  ~StringPool~ is the allowed strings. 
+
+  Furthermore, we would like to know the strings that were used in the
+  generation process, so that we can compose generators in such a way that a
+  generator uses only those strings used by another generator.
+
 
 * First approach
   We can readily define an instance for ~Arbitrary~ that allows us to create
@@ -166,3 +187,66 @@
   state depends on the string chosen by the generator.
 
   
+* Combining the reader and the state monad
+  Simple case: a counter that increments using a value from the environment.
+
+  TODO: put haskell code here .
+
+  Now consider this simple use case: we want to increment the counter 3 times
+  by 1 unit, but then increment the counter 2 times by 5 units. Operationally,
+  we would like to write something like:
+
+  #+BEGIN_SRC haskell
+    inc c 3
+    inc c 3
+    inc c 3
+    inc c 5
+    inc c 5
+  #+END_SRC
+
+  If we try to implement this behavior in Haskell, we quickly run into
+  problems:
+  #+BEGIN_SRC haskell
+    runCounter :: Counter -> Counter
+    runCounter c = inc (inc (inc (inc (inc c 3) 3) 3) 5) 5  
+  #+END_SRC
+  We could make use of some high-order abstractions such as ~fold~, but that
+  only get us so far. What we would like is to be able express ~runCounter~ in
+  a clear way, as the we did in first listing.
+
+  We know we can pass environment around using the reader-monad. So we could
+  define a function:
+  
+  #+BEGIN_SRC haskell
+  incR :: Reader Int Counter
+  #+END_SRC
+
+  Then we could try defining something like:
+  #+BEGIN_SRC haskell
+  incR = ask >>= \n -> return $ inc c n
+  #+END_SRC
+  But where does ~c~ comes from? We're missing the state!
+
+  We can define a function:
+  #+BEGIN_SRC haskell 
+  incS :: State Counter ()
+  incS = modify (\c -> inc c n)
+  #+END_SRC
+  [fn:1] but we need the ~n~ from somewhere. Then let's define the following
+  function instead:
+
+  #+BEGIN_SRC haskell
+  incS :: Int -> State Counter ()
+  incS n = modify (\c -> inc c n)
+  #+END_SRC
+
+  We're getting closer. How we combine this with the reader monad?
+
+
+*** Next combining this with a writer monad!
+
+* Footnotes
+
+[fn:1] note that ~modify (\c -> inc c n) = get >>= \c -> put $ inc c n~.
+
+    
