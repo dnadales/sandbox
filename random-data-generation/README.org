@@ -190,8 +190,6 @@
 * Combining the reader and the state monad
   Simple case: a counter that increments using a value from the environment.
 
-  TODO: put haskell code here .
-
   Now consider this simple use case: we want to increment the counter 3 times
   by 1 unit, but then increment the counter 2 times by 5 units. Operationally,
   we would like to write something like:
@@ -242,8 +240,11 @@
 
   We're getting closer. How we combine this with the reader monad?
 
+  TODO: write what you did.
+
 *** Other challenges
 ***** Combining this with a writer monad!
+
 ***** Think of laws that have to hold for this implementation
 
 * Footnotes

@@ -123,7 +123,7 @@ newtype GenState = St {getStrings :: [String]}
   deriving (Show)
 
 mState :: GenState
-mState = St ["foo", "bar", "baz"]
+mState = St ["foo", "bar", "baz", "fuss"]
 
 -- |  Removes a String from the state.
 removeString :: String -> GenState -> GenState
@@ -140,9 +140,26 @@ stringGenS genStSt =
   elements (getStrings st) >>= \str ->
   return (str, removeString str st)
 
+
 arbitraryStringS :: StateT GenState Gen String
+-- arbitraryStringS =
+--   mapStateT stringGenS get
+
+-- Answer given at http://goo.gl/oy9Zyc:
+--
+-- > arbitraryStringS = do
+-- >   s <- get
+-- >   str <- lift $ elements (getStrings s)
+-- >   modify $ removeString str
+-- >   return str
+--
+-- Desugared:
 arbitraryStringS =
-  mapStateT stringGenS get
+  get >>= \st ->
+  (lift $ elements (getStrings st)) >>= \generatedStr ->
+  modify (removeString generatedStr) >>
+  return generatedStr
+
 
 genTwoStrings :: StateT GenState Gen (String, String)
 genTwoStrings = liftM2 (,) arbitraryStringS arbitraryStringS
