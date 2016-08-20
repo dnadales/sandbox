@@ -10,6 +10,25 @@
   leads to cleaner code (at least for the example shown) as compared to an
   imperative version.
 
+*** Building and running the code
+    To build and run the code use [[https://docs.haskellstack.org/en/stable/README/][Stack]]. The code examples can be run using the
+    Haskell REPL:
+    #+BEGIN_SRC haskell
+    stack ghci
+    #+END_SRC
+    
+    Once the interpreter is started use the ~runComputation*~ functions to run
+    the examples:
+    #+BEGIN_SRC haskell
+      > runComputation
+      MkCounter {cValue = 19}
+      > runComputationS
+      MkCounter {cValue = 19}
+      > runComputationRS
+      MkCounter {cValue = 19}
+      > runComputationWRS
+      (((),[3,6,9,14,19]),MkCounter {cValue = 19})
+    #+END_SRC
 * The problem
   We want to implement a counter, that increments its value by a given
   constant.
