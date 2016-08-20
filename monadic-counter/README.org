@@ -1,0 +1,243 @@
+#+TITLE: A monadic counter.
+
+* The problem
+  We want to implement a counter, that increments the counter value by a given
+  constant.
+
+  We start by defining some types, and functions:
+  #+BEGIN_SRC haskell
+    newtype Counter = MkCounter {cValue :: Int}
+      deriving (Show)
+
+    -- | 'inc c n' increments the counter by 'n' units.
+    inc :: Counter -> Int -> Counter
+    inc (MkCounter c) n = MkCounter (c + n)
+  #+END_SRC
+
+  Assume we want to perform the following computation on the counter:
+  - set the counter to 0
+  - set the increment constant to 3
+  - increment the counter 3 times
+  - set the increment constant to 5
+  - increment the counter 2 times
+
+
+  If we try to implement this behavior in Haskell using the function ~inc~
+  above, we quickly end up with a mess.
+  #+BEGIN_SRC haskell
+    mComputation :: Counter
+    mComputation = inc (inc (inc (inc (inc (MkCounter 0) 3) 3) 3) 5) 5  
+  #+END_SRC
+  We could make use of some high-order abstractions such as ~fold~, but that
+  only get us so far. What we would like is to be able express ~mComputation~
+  in a clear way.
+
+  In an imperative language, we could write something like:
+  #+BEGIN_SRC java
+    counter = new Counter(0)
+    counter.setIncConstant(3)
+    counter.inc
+    counter.inc
+    counter.inc
+    counter.setIncConstant(5)
+    counter.inc
+    counter.inc
+  #+END_SRC
+  However, we don't want to have mutable state, and Haskell (luckily) doesn't
+  even have mutable state! But, does that mean that we have to trade purity by
+  readability and simplicity?
+
+* Introducing state
+  The [[https://hackage.haskell.org/package/mtl-2.2.1/docs/Control-Monad-State-Lazy.html#t:StateT][state monad]] provides abstractions for passing state around. We can make
+  use of the state monad, and define our increment function as a state
+  transformer.
+
+  #+BEGIN_SRC haskell
+    -- | CounterS is a monad.
+    type CounterS = State Counter
+
+    -- | Increment the counter by 'n' units.
+    incS :: Int-> CounterS ()
+    incS n = modify (\c -> inc c n)
+  #+END_SRC
+
+  This already enables us to express our computation in a more clear and
+  succinct way:
+  #+BEGIN_SRC haskell
+    -- | The computation we want to run, with the state monad.
+    mComputationS :: CounterS ()
+    mComputationS = do
+      incS 3
+      incS 3
+      incS 3
+      incS 5
+      incS 5
+  #+END_SRC
+
+  But we still have to pass the increment constant at each invocation. We would
+  like to avoid this. 
+
+* Adding an environment
+  The [[https://hackage.haskell.org/package/mtl-2.2.1/docs/Control-Monad-Reader.html#v:runReaderT][reader monad]] provides a convenient way to pass an environment around.
+  This monad is used in functional programming to perform what in the
+  imperative world is known as /dependency injection/. 
+
+  In its simplest version, the reader monad requires two types:
+  - the type of the value being read (i.e. our environment, ~r~ below),
+  - the value returned by the reader monad (~a~ below).
+
+  #+BEGIN_SRC haskell
+  Reader r a
+  #+END_SRC  
+  
+  However, we need to make use of the state monad as well. Thus, we need to use
+  the ~ReaderT~ transformer:
+
+  #+BEGIN_SRC haskell
+  newtype ReaderT r m a :: * -> (* -> *) -> * -> *
+  #+END_SRC
+
+  Using ~ReaderT~, we can define our counter with environment and state as
+  follows:
+  #+BEGIN_SRC haskell
+  type CounterRS = ReaderT Int CounterS
+  #+END_SRC
+
+  We define an ~incR~ function that takes the increment constant from the
+  environment (using ~ask~), and to define our increment function in terms of
+  our ~CounterS~ monad we make use of the ~lift~ function (which belongs to the
+  [[https://hackage.haskell.org/package/transformers-0.1.3.0/docs/Control-Monad-Trans.html][monad transformer]] class).
+  
+  #+BEGIN_SRC haskell
+    -- | Increment the counter by the amount of units specified by the environment.
+    incR :: CounterRS ()
+    incR = ask >>= lift . incS
+  #+END_SRC
+
+  Consider the following function:
+
+  #+BEGIN_SRC haskell
+    incTwo :: ReaderT Int (State Counter) ()
+    incTwo = incR >> incR
+  #+END_SRC
+
+  Being new to monad transformers, a question I had was whether ~incTwo~ was
+  calling under the hood the bind function (~>>=~) of the state monad.
+  Otherwise, we won't be incrementing the counter. To convince myself of this I
+  had to rely on the following law of ~lift~:
+
+  #+BEGIN_SRC haskell
+  lift m >>= (lift . f) = lift (m >>= f)
+  #+END_SRC
+
+  Then we can make the following derivation:
+  #+BEGIN_SRC haskell
+    incR >> incR
+    -- = {def. incR}
+    (ask >>= lift . incS) >> (ask >>= lift . incS)
+    -- = {associativity}
+    ask >>= (\n -> (lift . incS) n  >> (ask >>= lift . incS))
+    -- = {ask will have the same result, hence we can remove it.}
+    ask >>= (\n -> (lift . incS) n  >>= lift . incS))
+    -- = {def. composition}
+    ask >>= (\n -> lift  (incS n)  >>= lift . incS))
+    -- = {lift laws}
+    ask >>= (\n -> lift ((incS n)  >>= incS))
+  #+END_SRC
+
+  When we see that ~incR >> incR~ is indeed calling the bind operator of the
+  state monad (as well as the bind operator of the reader monad, of course).
+
+  Using the reader monad we can define our computation as follows:
+  #+BEGIN_SRC haskell
+    -- | The computation we want to run, using reader and state monads.
+    mComputationRS :: CounterRS ()
+    mComputationRS = do
+      local (const 3) $ do
+        incR
+        incR
+        incR
+        local (const 5) $ do
+          incR
+          incR
+  #+END_SRC
+
+  Notice that we have also gained something more: the visual structure of our
+  program now makes it clear where the increment constant is changed. We can
+  see this in a glimpse. Compare this with the imperative version.
+
+* The requirements change: we need logging!
+  Now assume that we want to add logging to our computation, so that we can see
+  the evolution of our counter in time. 
+
+  We also have a monad to perform this task, the [[https://hackage.haskell.org/package/mtl-2.2.1/docs/Control-Monad-Writer-Strict.html][writer monad]]. As with the
+  reader monad, since we are composing them, we need to make use of the reader
+  monad transformer:
+  
+  #+BEGIN_SRC haskell
+  newtype WriterT w m a :: * -> (* -> *) -> * -> *
+  #+END_SRC
+
+  Here ~w~ represents the type of the output to accumulate (which has to be a
+  monoid, which allow us to accumulate this value), ~m~ is the inner monad, and
+  ~a~ the type of the computation. 
+
+  We can then define our counter with logging, environment, and state as
+  follows:
+  
+  #+BEGIN_SRC haskell
+  type CounterWRS = WriterT [Int] CounterRS
+  #+END_SRC
+
+  And making use of ~lift~ we can define the version of the increment function
+  which logs the value of the counter after each increment:
+  #+BEGIN_SRC haskell
+    incW :: CounterWRS ()
+    incW = lift incR >> get >>= tell . (:[]) . cValue
+  #+END_SRC
+
+  But wait... we are using the ~get~ function, which belongs to the state
+  monad! How is this possible? 
+
+  
+
+* Afterword: comparison with an imperative solution
+  This article was motivated by my desire to understand how different monads
+  can be composed using state transformers. However, it is tempting to compare
+  the elaborated solution against an imperative counterpart:
+
+  What if we needed to set the increment constant only temporarily? Our code
+  makes it clear that the change in the increment constant is only local. So,
+  in our original computation, if we needed to continue to increment our
+  counter after temporarily setting it to 5, there is no need for a manual
+  reset:
+  #+BEGIN_SRC haskell
+  TODO: show haskell code
+  #+END_SRC
+
+  Going back to the imperative code, we would have to result the counter manually.
+  #+BEGIN_SRC java
+    counter = new Counter(0)
+    counter.setIncConstant(3)
+    counter.inc
+    counter.inc
+    counter.inc
+    counter.setIncConstant(5)
+    counter.inc
+    counter.inc
+    counter.setIncConstant(3)
+    counter.inc
+    counter.inc
+  #+END_SRC
+  This also opens the possibility for introducing errors if we forget to reset
+  the counter, or we do it with the right value (in the examples it is easy to
+  spot the errors, but in the production code this gets trickier).
+
+  Another advantage of using monads is that we were able to address cross
+  cutting concerns separately. If we would have liked to introduce logging in
+  the imperative code, we would have had to either modify the ~inc~ function,
+  or add a method to expose the counter's value. This, in turn, would require
+  to pass state around, mimicking the behavior of our state monad. We get this
+  for free, and without having to repeat ourselves.
+
+
