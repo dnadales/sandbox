@@ -1,7 +1,17 @@
 #+TITLE: A monadic counter.
 
+* Abstract
+  In this article I show how I managed to compose the reader, writer, and state
+  monad. I use for this a simple case study that allows me to expose the
+  essence of the problem at hand. The instances of the reader, writer, and
+  state monad transformers allowed me to reduce boilerplate, by getting
+  instances for free. Furthermore, I find that the of monads makes it possible
+  to address cross cutting concerns in a modular and compositional way, and
+  leads to cleaner code (at least for the example shown) as compared to an
+  imperative version.
+
 * The problem
-  We want to implement a counter, that increments the counter value by a given
+  We want to implement a counter, that increments its value by a given
   constant.
 
   We start by defining some types, and functions:
@@ -14,13 +24,12 @@
     inc (MkCounter c) n = MkCounter (c + n)
   #+END_SRC
 
-  Assume we want to perform the following computation on the counter:
+  Assume we want to carry out the following computation using the counter:
   - set the counter to 0
   - set the increment constant to 3
   - increment the counter 3 times
   - set the increment constant to 5
   - increment the counter 2 times
-
 
   If we try to implement this behavior in Haskell using the function ~inc~
   above, we quickly end up with a mess.
@@ -166,7 +175,7 @@
   program now makes it clear where the increment constant is changed. We can
   see this in a glimpse. Compare this with the imperative version.
 
-* The requirements change: we need logging!
+* The requirements changed: we need logging!
   Now assume that we want to add logging to our computation, so that we can see
   the evolution of our counter in time. 
 
@@ -199,7 +208,65 @@
   But wait... we are using the ~get~ function, which belongs to the state
   monad! How is this possible? 
 
+  We have that, in function ~incW~:
+  #+BEGIN_SRC haskell
+  lift incR :: CounterWRS ()
+  -- or equivalently 
+  lift incR :: WriterT [Int] CounterRS ()
+  #+END_SRC
   
+  If we look at the [[https://hackage.haskell.org/package/mtl-2.2.1/docs/Control-Monad-State-Strict.html][instances]] of the State monad, we find:
+  #+BEGIN_SRC haskell
+  (Monoid w, MonadState s m) => MonadState s (WriterT w m)
+  #+END_SRC
+  Instantiated to the types we are using this gets translated to:
+  #+BEGIN_SRC haskell
+  (Monoid [Int], MonadState s CounterRS) => MonadState s (WriterT [Int] CounterRS)
+  #+END_SRC
+  And it turn out that ~CounterRS~ is a state monad since:
+  #+BEGIN_SRC haskell
+  MonadState s m => MonadState s (ReaderT r m) 
+  -- and
+  type CounterRS = ReaderT Int CounterS
+  -- which implies
+  MonadState Counter CounterS => MonadState Counter (ReaderT Int CounterS)
+  #+END_SRC
+  So ~CounterRS~ is a state monad, because ~CounterS~ is, and similarly,
+  ~CounterWRS~ is a state monad because ~CounterRS~ is!
+  
+  #+BEGIN_COMMENT
+  As I write this I cannot help wondering where I would be without Haskell's
+  strong typing. Note to myself: add this to the reasons why I would never use
+  a dynamically typed language if I have the choice.
+  #+END_COMMENT
+
+  In addition, since ~CounterRS~ is a monad reader, so is 
+  #+BEGIN_SRC haskell
+  WriterT [Int] CounterRS
+  #+END_SRC
+  as the [[https://hackage.haskell.org/package/mtl-2.2.1/docs/Control-Monad-Reader.html#v:runReaderT][instances for monad reader]] tell us
+  #+BEGIN_SRC haskell
+  (Monoid w, MonadReader r m) => MonadReader r (WriterT w m) 
+  -- Which for our particular case translates to:
+  (Monoid [Int], MonadReader Int CounterRS) => MonadReader Int (WriterT [Int] CounterRS)
+  #+END_SRC
+  This means that we can use ~local~ to set the local environment of our
+  (reader and writer) monad ~CounterWRS~.
+
+  The above fact enables us to write an implementation of our computation
+  in the same way as we did for our reader version:
+  
+  #+BEGIN_SRC haskell
+    mComputationWRS :: CounterWRS ()
+    mComputationWRS = do
+      local (const 3) $ do
+        incW
+        incW
+        incW
+        local (const 5) $ do
+          incW
+          incW
+  #+END_SRC
 
 * Afterword: comparison with an imperative solution
   This article was motivated by my desire to understand how different monads
@@ -212,10 +279,22 @@
   counter after temporarily setting it to 5, there is no need for a manual
   reset:
   #+BEGIN_SRC haskell
-  TODO: show haskell code
+    mComputationWRS :: CounterWRS ()
+    mComputationWRS = do
+      local (const 3) $ do
+        incW
+        incW
+        incW
+        local (const 5) $ do
+          incW
+          incW
+        incW
+        incW
   #+END_SRC
+  Note also in the code above the importance of indentation in Haskell!
 
-  Going back to the imperative code, we would have to result the counter manually.
+  Going back to the imperative code, we would have to reset the counter
+  manually.
   #+BEGIN_SRC java
     counter = new Counter(0)
     counter.setIncConstant(3)
@@ -230,14 +309,12 @@
     counter.inc
   #+END_SRC
   This also opens the possibility for introducing errors if we forget to reset
-  the counter, or we do it with the right value (in the examples it is easy to
-  spot the errors, but in the production code this gets trickier).
+  the counter, or if we do it with the wrong value (in the examples it is easy
+  to spot the errors, but in the production code this gets trickier).
 
   Another advantage of using monads is that we were able to address cross
-  cutting concerns separately. If we would have liked to introduce logging in
+  cutting concerns separately. If we would have wanted to introduce logging in
   the imperative code, we would have had to either modify the ~inc~ function,
   or add a method to expose the counter's value. This, in turn, would require
   to pass state around, mimicking the behavior of our state monad. We get this
   for free, and without having to repeat ourselves.
-
-

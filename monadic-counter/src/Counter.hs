@@ -80,7 +80,6 @@ mComputationWRS = do
       incW
       incW
 
-
 runComputationWRS :: IO ()
 runComputationWRS = putStrLn $ show $ runState compWithEnv (MkCounter 0)
   where compWithEnv = runReaderT compWithLogs 15
