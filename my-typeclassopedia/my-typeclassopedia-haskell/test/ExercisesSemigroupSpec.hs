@@ -2,9 +2,9 @@
 
 module ExercisesSemigroupSpec where
 
-import qualified Data.Map           as Map
+import qualified Data.Map       as Map
 import           Data.Semigroup
-import           ExercisesSemigroup
+import           MMap
 import           Test.Hspec
 
 spec :: Spec

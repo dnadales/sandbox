@@ -16,6 +16,8 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     ExercisesSemigroup
+                     , ExercisesMonoid
+                     , MMap
   build-depends:       base >= 4.9 && < 5
                      , containers
   default-language:    Haskell2010

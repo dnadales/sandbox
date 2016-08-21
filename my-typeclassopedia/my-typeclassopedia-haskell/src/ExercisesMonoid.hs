@@ -1,0 +1,5 @@
+-- |
+
+module ExercisesMonoid where
+
+
