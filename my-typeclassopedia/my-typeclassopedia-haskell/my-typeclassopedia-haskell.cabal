@@ -17,6 +17,7 @@ library
   hs-source-dirs:      src
   exposed-modules:     ExercisesSemigroup
                      , ExercisesMonoid
+                     , ExercisesFunctor
                      , MMap
   build-depends:       base >= 4.9 && < 5
                      , containers
