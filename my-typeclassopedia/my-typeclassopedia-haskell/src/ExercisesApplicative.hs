@@ -1,0 +1,4 @@
+-- |
+
+module ExercisesApplicative where
+
