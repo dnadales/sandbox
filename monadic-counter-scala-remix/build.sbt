@@ -9,7 +9,7 @@ libraryDependencies += "org.scalatest" %% "scalatest" % "2.2.4" % "test"
 
 // Uncomment to use Akka
 //libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.3.11"
-libraryDependencies += "org.typelevel" %% "cats" % "0.7.0"
+libraryDependencies += "org.typelevel" %% "cats" % "0.7.2"
 
 resolvers += Resolver.sonatypeRepo("releases")
 

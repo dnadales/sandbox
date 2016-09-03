@@ -1,6 +1,7 @@
 package com.example
 
 import cats.data._
+import cats.data.WriterT
 import cats.instances.all._
 import cats._
 import cats.arrow.Arrow
@@ -42,20 +43,9 @@ object Counter {
   type CounterRS[A] = ReaderT[CounterS[?], Int, A]
 
   def incR: CounterRS[Unit] = {
-    // Both these versions will work!
-//    for {
-//      n <- Kleisli.ask[CounterS[?], Int]
-//    } yield Kleisli.lift[CounterS[?], Int, Unit](incS(n))
-//
-//    for {
-//      n <- Kleisli.ask[CounterS[?], Int]
-//    } yield incS(n)
-
     Kleisli
       .ask[CounterS[?], Int]
       .flatMap{n:Int => ReaderT.lift(incS(n))}
-      //.map{n: Int => CounterS[?].lift(n => incS(n))}
-
   }
 
   def local(n: Int) = Kleisli.local[CounterS[?], Unit, Int](_ => n)(_)
@@ -74,4 +64,11 @@ object Counter {
         }
       } yield ()
     }
+
+  // Adding logging.
+  type CounterWRS[A] = WriterT[CounterRS[?], Seq[Int], A]
+
+  // WriterT does not have lift in the latest release of Cats.
+  def incW: CounterWRS[Unit] = ???
+
 }
