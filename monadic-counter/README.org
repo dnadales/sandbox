@@ -5,7 +5,7 @@
   monad. I use for this a simple case study that allows me to expose the
   essence of the problem at hand. The instances of the reader, writer, and
   state monad transformers allowed me to reduce boilerplate, by getting
-  instances for free. Furthermore, I find that the of monads makes it possible
+  instances for free. Furthermore, I find that the use of monads makes it possible
   to address cross cutting concerns in a modular and compositional way, and
   leads to cleaner code (at least for the example shown) as compared to an
   imperative version.
