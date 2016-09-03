@@ -1,10 +1,6 @@
 package com.example
 
-import cats.data._
-import cats.data.WriterT
-import cats.instances.all._
-import cats._
-import cats.arrow.Arrow
+import cats.data.{WriterT, _}
 
 /**
   * Created by damian on 31-8-16.

@@ -4,3 +4,5 @@
   - IntelliJ will spot errors that apparently are not.
   - Syntax of ~for~ is awkward as compared to Haskell's ~do~ notation.
   - A lot of noise in the code (see the definition I had to make of ~local~)
+  - $DEITY forbids you fail to bring and implicit definition... but where to
+    look for them?
