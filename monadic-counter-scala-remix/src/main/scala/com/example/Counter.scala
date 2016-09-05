@@ -7,7 +7,7 @@ import cats.data.{WriterT, _}
   */
 object Counter {
 
-  case class Counter(cValue: Int) extends AnyVal {
+  case class Counter(val cValue: Int) extends AnyVal {
     def inc(n: Int): Counter = Counter(cValue + n)
   }
 

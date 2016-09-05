@@ -1,27 +1,40 @@
 package com.example
 
-import com.example.Counter.Counter
-
-import scalaz.Scalaz._
 import scalaz._
-import scalaz.syntax.applicative._
-import scalaz.syntax.kleisli._
+import Scalaz._
+
+
 
 /**
   * Created by damian on 3-9-16.
   */
 object CounterZ {
+  val SM = ReaderWriterState.rwstMonad[Id, Int, List[Int], Counter.Counter]
 
-  type CounterZ[A] = ReaderWriterState[Int, Seq[Int], Counter.Counter, Unit]
+  type CounterZ[A] = ReaderWriterState[Int, List[Int], Counter.Counter, Unit]
 
-  val incZ: CounterZ[Unit] =
-    ???
-
-  val mComputationZ: CounterZ[Unit] =
-    //ReaderWriterStateT.rwstMonad.local(_ => 3)(incZ)
-    // This won't work either. So much for Scala for today...
-    //Kleisli.local[Id, Unit, Int](_ => 5)(incZ)
-
+  val incZ: IRWS[Int, List[Int], Counter.Counter, Counter.Counter, Unit] = for {
+    n <- SM.ask
+    _ <- SM.modify(c => c.inc(n))
+    c <- SM.get
+    _ <- SM.tell(List(c.cValue))
+  } yield ()
 
 
+  val mComputationZ:
+  IRWS[Int, List[Int], Counter.Counter, Counter.Counter, Unit] = for {
+    _ <- SM.local[Unit](i => 3) {
+      for {
+        _ <- incZ
+        _ <- incZ
+        _ <- incZ
+        _ <- SM.local[Unit](i => 5) {
+          for {
+            _ <- incZ
+            _ <- incZ
+          } yield ()
+        }
+      } yield ()
+    }
+  } yield ()
 }
