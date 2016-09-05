@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 -- | Monadic counters.
 
 module Counter where
@@ -84,3 +85,24 @@ runComputationWRS :: IO ()
 runComputationWRS = putStrLn $ show $ runState compWithEnv (MkCounter 0)
   where compWithEnv = runReaderT compWithLogs 15
         compWithLogs = (runWriterT mComputationWRS)
+
+-- * Doing everything in one go.
+-- Credit goes to Bart Frenk.
+inc' :: (MonadReader Int m, MonadState Counter m, MonadWriter [Int] m) => m ()
+inc' = ask >>= modify . (flip inc) >> get >>= tell . (:[]) . cValue
+
+mComputation' :: (MonadReader Int m, MonadState Counter m, MonadWriter [Int] m) => m ()
+mComputation' = do
+  local (const 3) $ do
+    inc'
+    inc'
+    inc'
+    local (const 5) $ do
+      inc'
+      inc'
+
+runComputation' :: IO ()
+runComputation' = putStrLn $ show $ runState compWithEnv (MkCounter 0)
+  where compWithEnv = runReaderT compWithLogs 15
+        compWithLogs = runWriterT mComputation'
+

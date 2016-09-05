@@ -287,6 +287,71 @@
           incW
   #+END_SRC
 
+* Doing everything in one go.
+  This article intended to show monad transformers at work. However, we can
+  achieve the same effect by composing all the aspects (environment, state, and
+  logging) in a single increment operation[fn:1].
+
+  To do this we make use of type-constraints:
+  #+BEGIN_SRC haskell
+  inc' :: (MonadReader Int m, MonadState Counter m, MonadWriter [Int] m) => m ()
+  inc' = ask >>= modify . (flip inc) >> get >>= tell . (:[]) . cValue
+  #+END_SRC
+  Here we arrive at a solution that will work for any monad that satisfies the
+  constraints above. The computation function is defined thus with type:
+  #+BEGIN_SRC haskell
+  mComputation' :: (MonadReader Int m, MonadState Counter m, MonadWriter [Int] m) => m ()
+  #+END_SRC
+  since in its body we make use of inc'.
+  
+  We could run this computation, in the ~ghci~ REPL for instance, as follows:
+  #+BEGIN_SRC haskell
+  runState ( runReaderT ( runWriterT mComputation' ) 15 )  (MkCounter 0)
+  #+END_SRC
+
+  One thing that puzzled me about this is that I'm not specifying at any point
+  what concrete instance of ~m~ I'm using! Again, the Haskell type-checker is
+  smart enough to figure out this by itself. We can make the following
+  derivation to find out how concrete types get instantiated.
+
+  We have:
+  #+BEGIN_SRC haskell
+  runState :: State s a -> s -> a
+  -- => {replacing 's' in our context}
+  runState :: State Counter a -> Counter -> a
+  -- => {type constraints, the first argument of runState must be of type ...}
+  runReaderT ( runWriterT mComputation' ) 15 :: State Counter a
+  #+END_SRC
+
+  On the other hand:
+  #+BEGIN_SRC haskell
+  runReaderT :: ReaderT r m a -> r -> m a
+  -- => {type constraints above: 'State Counter a' must equal 'm a', thus
+  --     'State Counter == m'; 'r == Int'}
+  runReaderT :: ReaderT Int (State Counter) a
+  -> Int -> (State Counter) a
+  -- => {type constraints}
+  runWriterT mComputation' :: ReaderT Int (State Counter) a
+  #+END_SRC
+
+  And finally:
+  #+BEGIN_SRC haskell
+  runWriterT :: WriterT w m b -> m (b, w)
+  -- => {type constraints 'm == ReaderT Int (State Counter)', 'a == (b, w)'}
+  runWriterT :: WriterT w (ReaderT Int (State Counter)) b -> (ReaderT Int (State Counter)) (b, w)
+  -- => {type constraints}
+  mComputation' :: WriterT w (ReaderT Int (State Counter)) b
+  -- => { type constraints, type constraints in 'mComputation' tell us that 'm'
+  --      must be a 'MonadWriter [Int]' hence 'w = [Int]' }
+  mComputation' :: WriterT [Int] (ReaderT Int (State Counter)) ()
+  #+END_SRC
+
+  So the concrete ~m~ used in mComputation' is:
+  #+BEGIN_SRC haskell
+  WriterT [Int] (ReaderT Int (State Counter))
+  #+END_SRC
+  which coincides with our type ~CounterWRS~ defined in the previous section.
+  
 * Afterword: comparison with an imperative solution
   This article was motivated by my desire to understand how different monads
   can be composed using state transformers. However, it is tempting to compare
@@ -337,3 +402,7 @@
   or add a method to expose the counter's value. This, in turn, would require
   to pass state around, mimicking the behavior of our state monad. We get this
   for free, and without having to repeat ourselves.
+
+* Footnotes
+
+[fn:1] Credit for this solution goes to Bart Frenk.
