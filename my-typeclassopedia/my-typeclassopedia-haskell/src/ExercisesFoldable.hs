@@ -1,0 +1,4 @@
+-- |
+
+module ExercisesFoldable where
+

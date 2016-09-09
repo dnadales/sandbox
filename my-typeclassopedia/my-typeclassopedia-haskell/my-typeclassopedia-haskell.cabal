@@ -21,6 +21,7 @@ library
                      , ExercisesApply
                      , ExercisesApplicative
                      , ExercisesMonad
+                     , ExercisesFoldable
                      , MMap
   build-depends:       base >= 4.9 && < 5
                      , containers
