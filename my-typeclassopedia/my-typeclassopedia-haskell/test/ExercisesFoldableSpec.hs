@@ -4,6 +4,7 @@ module ExercisesFoldableSpec where
 
 import           Data.Foldable
 import           Data.Monoid
+import           Data.Semigroup
 import           Test.Hspec
 
 spec :: Spec
@@ -31,6 +32,12 @@ spec = do
 
     it "concatenates the string representation of numbers" $ do
       foldMap show [0, 1, 2, 3] `shouldBe` "0123"
+
+    it "gives the minimum and maximum values of a list (*new*)" $ do
+      let minMax :: Int -> (Min Int, Max Int)
+          minMax x = (Min x, Max x)
+      foldMap minMax [0, 1, 2, 3] `shouldBe` (Min 0, Max 3)
+
 
   describe "foldK" $ do
     it "is not necessary in the case of lists" $ do
