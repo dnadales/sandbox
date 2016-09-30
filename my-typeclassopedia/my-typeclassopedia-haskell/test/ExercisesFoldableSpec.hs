@@ -3,6 +3,7 @@
 module ExercisesFoldableSpec where
 
 import           Data.Foldable
+import           Data.Functor.Compose
 import           Data.Monoid
 import           Data.Semigroup
 import           Test.Hspec
@@ -25,6 +26,16 @@ spec = do
 
     it "folds a list of monoids (Integer with * is a Monoid)" $ do
       fold [0, 1, 2, 3] `shouldBe` (0 :: Product Int)
+
+    it "extracts the value of Maybe (Just)" $ do
+      fold (Just 15) `shouldBe` (15 :: Sum Int)
+
+    it "gives the zero element of the monoid when the maybe value is Nothing" $ do
+      fold Nothing `shouldBe` (0 :: Sum Int)
+
+    it ("gives the zero element of the monoid when the maybe value is Nothing"
+        ++ " (using product as the monoid operation)") $ do
+      fold Nothing `shouldBe` (1 :: Product Int)
 
   describe "foldMap" $ do
     it "sums the string lengths" $ do
@@ -63,3 +74,21 @@ spec = do
 
     it "returns an empty list when Nothing is passed" $ do
       toList Nothing `shouldBe` ([] :: [()])
+
+  describe "composition of foldables" $ do
+    it "composes lists,  maybes, and ints (with sum)" $ do
+      let xs :: Compose [] Maybe (Sum Int)
+          xs = Compose [Just 0, Just 1, Just 2]
+      fold xs `shouldBe` 3
+      -- In this case the fold is applied to the list, and to the maybe values.
+      -- A fold on the maybe values extracts their values.
+      -- Note how this is different from `fold [Just 0, Just 1, Just 2] == Just 3`
+
+    it "is different from not using composition" $ do
+      let xs = [Just 0, Just 1, Just 2]
+      fold xs `shouldBe` Just (3 :: Sum Int)
+
+    it "composes lists,  maybes, and strings" $ do
+      let xs :: Compose [] Maybe String
+          xs = Compose [Just "0", Nothing, Just "2"]
+      fold xs `shouldBe` "02"
