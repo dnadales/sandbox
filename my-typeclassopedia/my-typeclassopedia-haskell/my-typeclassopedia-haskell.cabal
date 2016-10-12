@@ -22,9 +22,11 @@ library
                      , ExercisesApplicative
                      , ExercisesMonad
                      , ExercisesFoldable
+                     , ExercisesTraversable
                      , MMap
   build-depends:       base >= 4.9 && < 5
                      , containers
+                     , either >= 4.4.1.1
   default-language:    Haskell2010
 
 executable my-typeclassopedia-haskell
@@ -45,6 +47,7 @@ test-suite my-typeclassopedia-haskell-test
                      , hspec
                      , QuickCheck
                      , cond
+                     , either >= 4.4.1.1
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010
 
