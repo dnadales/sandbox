@@ -5,6 +5,7 @@ module CloudFiles where
 
 import           Control.Monad.Free
 import           Data.List.Split
+import           Prelude            hiding (log)
 
 --------------------------------------------------------------------------------
 -- The DSL for cloud files.
@@ -36,8 +37,19 @@ listFiles path = liftF $ ListFiles path id
 
 --------------------------------------------------------------------------------
 -- The DSL for logging.
-data Level = Debug | Info | Warning | Error
-data LogF a = Log Level String a
+data Level = Debug | Info | Warning | Error deriving Show
+data LogF a = Log Level String a deriving Functor
+
+log :: Level -> String -> Free LogF ()
+log level msg = liftF $ Log level msg ()
+
+-- | An interpreter for the logging DSL.
+interpretLog :: Free LogF a -> IO ()
+interpretLog (Free (Log level msg next)) = do
+  putStrLn $ (show level) ++ ": " ++ msg
+  interpretLog next
+interpretLog (Pure _) = do
+  putStrLn $ "End of program"
 
 --------------------------------------------------------------------------------
 -- The DSL for REST clients.
@@ -51,7 +63,7 @@ get path = liftF $ Get path id
 put :: Path -> Bytes -> Free RestF Bytes
 put path bytes = liftF $ Put path bytes id
 
--- | An interpreter for the cloudDSL that uses the REST DLS.
+-- | An interpreter for the cloud DSL that uses the REST DLS.
 interpretCloudWithRest :: CloudFilesF a -> Free RestF a
 interpretCloudWithRest (SaveFile path bytes next) = do
   put path bytes
@@ -62,7 +74,20 @@ interpretCloudWithRest (ListFiles path withFiles) = do
   let files = splitOn " " content
   return (withFiles files)
 
--- An interpreter for the REST DSL.
+-- | An interpreter for the cloud DSL in terms of logging.
+interpretCloudWithLogging :: CloudFilesF a -> Free LogF a
+interpretCloudWithLogging (SaveFile path bytes next) = do
+  let msg = "Saving " ++ bytes ++ " to " ++ path
+  log Debug msg
+  return next
+
+interpretCloudWithLogging (ListFiles path withFiles) = do
+  let msg = "Listing " ++ path
+  log Debug msg
+  return (withFiles []) -- FIXME: this is not nice!
+
+
+-- | An interpreter for the REST DSL.
 
 interpretRest :: Free RestF a -> IO ()
 -- | Note that `withResponse :: Bytes -> Free RestF a` since
@@ -94,5 +119,10 @@ sampleCloudFilesProgram = do
   _ <- listFiles "/myfolder"
   return ()
 
+-- | Run the sample program using the REST interpreter.
 runSampleCloudProgram =
   interpretRest $ foldFree interpretCloudWithRest sampleCloudFilesProgram
+
+-- | Run the sample program using the loging interpreter.
+runSampleCloudProgram1 =
+  interpretLog $ foldFree interpretCloudWithLogging sampleCloudFilesProgram
