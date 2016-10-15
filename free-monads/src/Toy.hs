@@ -4,8 +4,8 @@ module Toy where
 
 import           Control.Monad.Free
 
-data Toy b next =
-  Output b next -- Output b and perform the next aciton.
+data Toy b next
+  = Output b next -- Output b and perform the next aciton.
   | Bell next   -- Rings the bell and perform the next action.
   | Done        -- End of execution.
 
@@ -294,16 +294,16 @@ output :: a -> Free (Toy a) ()
 output x = liftF ((Output x) ())
 
 -- Next: we want to get here:
-program :: Free (Toy Char) r
-program = do
-  subroutine
-  bell
-  done
+-- program :: Free (Toy Char) r
+-- program = do
+--   subroutine
+--   bell
+--   done
 
 -- TODO: write a version of the interpreter 'interpret' that uses the free
 -- monad.
 interpretF :: Show a => Fix (Toy a) -> String
-
+interpretF = undefined
 -- TODO: Does 'done' swallows the commands? Why?
 
 -- For more info see:
