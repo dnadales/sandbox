@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE RankNTypes    #-}
 -- | Work on the ideas presented at http://degoes.net/articles/modern-fp
 
 module CloudFiles where
@@ -44,10 +45,11 @@ log :: Level -> String -> Free LogF ()
 log level msg = liftF $ Log level msg ()
 
 -- | An interpreter for the logging DSL.
-interpretLog :: Free LogF a -> IO ()
-interpretLog (Free (Log level msg next)) = do
-  putStrLn $ (show level) ++ ": " ++ msg
-  interpretLog next
+interpretLog :: Free (Halt LogF) a -> IO ()
+interpretLog (Free f) = do
+  case functor f of
+    (Log level msg next) -> do putStrLn $ (show level) ++ ": " ++ msg
+
 interpretLog (Pure _) = do
   putStrLn $ "End of program"
 
@@ -74,17 +76,18 @@ interpretCloudWithRest (ListFiles path withFiles) = do
   let files = splitOn " " content
   return (withFiles files)
 
--- | An interpreter for the cloud DSL in terms of logging.
-interpretCloudWithLogging :: CloudFilesF a -> Free LogF a
-interpretCloudWithLogging (SaveFile path bytes next) = do
-  let msg = "Saving " ++ bytes ++ " to " ++ path
-  log Debug msg
-  return next
+newtype Halt f a = Halt {functor :: f ()} deriving Functor
 
-interpretCloudWithLogging (ListFiles path withFiles) = do
-  let msg = "Listing " ++ path
-  log Debug msg
-  return (withFiles []) -- FIXME: this is not nice!
+-- | An interpreter for the cloud DSL in terms of logging.
+--
+interpretCloudWithLogging :: forall a . CloudFilesF a -> Free (Halt LogF) a
+interpretCloudWithLogging (SaveFile path bytes _) =
+  liftF $ Halt $ Log Debug msg ()
+  where msg = "Saving " ++ bytes ++ " to " ++ path
+
+interpretCloudWithLogging (ListFiles path _) =
+  liftF $ Halt $ Log Debug msg ()
+  where msg = "Listing " ++ path
 
 
 -- | An interpreter for the REST DSL.
