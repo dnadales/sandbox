@@ -1,30 +1,23 @@
 {-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE RankNTypes    #-}
 -- | Work on the ideas presented at http://degoes.net/articles/modern-fp
 
 module CloudFiles where
 
 import           Control.Monad.Free
+import           Data.Functor.Coproduct
+import           Data.Functor.Sum
 import           Data.List.Split
-import           Prelude            hiding (log)
+import           Prelude                hiding (log)
 
 --------------------------------------------------------------------------------
 -- The DSL for cloud files.
 data CloudFilesF a
   = SaveFile Path Bytes a
   | ListFiles Path ([Path] -> a)
-  -- | GetFileContents Path (Bytes -> a)
+  deriving Functor
 
 type Path = String
-
 type Bytes = String
-
--- | TODO: I think this should work if we write `deriving Functor`
-instance Functor CloudFilesF where
-  fmap f (SaveFile path bytes next) = SaveFile path bytes (f next)
-  fmap f (ListFiles path withPaths) = ListFiles path (f . withPaths)
-  -- fmap f (GetFileContents path withContents) =
-  --   GetFileContents path (f . withContents)
 
 saveFile :: Path -> Bytes -> Free CloudFilesF ()
 -- | To define `saveFile` we use `liftF`:
@@ -41,22 +34,20 @@ listFiles path = liftF $ ListFiles path id
 data Level = Debug | Info | Warning | Error deriving Show
 data LogF a = Log Level String a deriving Functor
 
+-- | Utility functions to build log programs.
 log :: Level -> String -> Free LogF ()
 log level msg = liftF $ Log level msg ()
 
--- | An interpreter for the logging DSL.
-interpretLog :: Free (Halt LogF) a -> IO ()
-interpretLog (Free f) = do
-  case functor f of
-    (Log level msg next) -> do putStrLn $ (show level) ++ ": " ++ msg
-
-interpretLog (Pure _) = do
-  putStrLn $ "End of program"
+-- | An interpreter for the logging DSL, in terms of the IO monad.
+interpLogIO :: LogF a -> IO a
+interpLogIO (Log level msg next) = do
+  putStrLn $ (show level) ++ ": " ++ msg
+  return next
 
 --------------------------------------------------------------------------------
 -- The DSL for REST clients.
 data RestF a = Get Path (Bytes -> a)
-             | Put Path Bytes (Bytes -> a) -- | TODO: why does get returns Bytes?
+             | Put Path Bytes (Bytes -> a)
              deriving Functor
 
 get :: Path -> Free RestF Bytes
@@ -66,45 +57,46 @@ put :: Path -> Bytes -> Free RestF Bytes
 put path bytes = liftF $ Put path bytes id
 
 -- | An interpreter for the cloud DSL that uses the REST DLS.
-interpretCloudWithRest :: CloudFilesF a -> Free RestF a
-interpretCloudWithRest (SaveFile path bytes next) = do
+cloudFtoRestM :: CloudFilesF a -> Free RestF a
+cloudFtoRestM (SaveFile path bytes next) = do
   put path bytes
   return next
+
 -- | For this case let's do something slightly more interesting.
-interpretCloudWithRest (ListFiles path withFiles) = do
+cloudFtoRestM (ListFiles path withFiles) = do
   content <- get path
   let files = splitOn " " content
   return (withFiles files)
 
-newtype Halt f a = Halt {functor :: f ()} deriving Functor
-
--- | An interpreter for the cloud DSL in terms of logging.
+-- | A decorator for the cloud DSL that adds logging.
 --
-interpretCloudWithLogging :: forall a . CloudFilesF a -> Free (Halt LogF) a
-interpretCloudWithLogging (SaveFile path bytes _) =
-  liftF $ Halt $ Log Debug msg ()
-  where msg = "Saving " ++ bytes ++ " to " ++ path
+addLogToRest :: CloudFilesF a -> Free (Sum LogF RestF) a
+addLogToRest inst@(SaveFile path bytes _) = do
+  hoistFree InL $ log Debug ("Saving " ++ bytes ++ " to " ++ path)
+  next <- hoistFree InR $ cloudFtoRestM inst
+  hoistFree InL $ log Debug ("Saved to " ++ path)
+  return next
 
-interpretCloudWithLogging (ListFiles path _) =
-  liftF $ Halt $ Log Debug msg ()
-  where msg = "Listing " ++ path
+addLogToRest inst@(ListFiles path _) = do
+  hoistFree InL $ log Debug ("Listing contents in " ++ path)
+  next <- hoistFree InR $ cloudFtoRestM inst
+  hoistFree InL $ log Debug ("Listing done in " ++ path)
+  return next
 
-
--- | An interpreter for the REST DSL.
-
-interpretRest :: Free RestF a -> IO ()
--- | Note that `withResponse :: Bytes -> Free RestF a` since
--- `Get path withResponse :: RestF (Free RestF a)`.
-interpretRest (Free (Get path withResponse)) = do
+interpRestIO :: RestF a -> IO a
+interpRestIO (Get path withResponse) = do
   putStrLn $ "I should GET " ++ path
   result <- return "mocked GET response"
-  interpretRest (withResponse result)
-interpretRest (Free (Put path bytes withResponse)) = do
+  return (withResponse result)
+
+interpRestIO (Put path bytes withResponse) = do
   putStrLn $ "I should PUT " ++ path ++ " " ++ bytes
   result <- return "mocked PUT response"
-  interpretRest (withResponse result)
-interpretRest (Pure x) =
-  putStrLn "Finishing and ignoring the result"
+  return (withResponse result)
+
+interpLogRestIO :: (Sum LogF RestF) a -> IO a
+interpLogRestIO (InL logF) = interpLogIO logF
+interpLogRestIO (InR restF) = interpRestIO restF
 
 -- Test the interpreter for the REST DSL with a program.
 sampleProgram :: Free RestF Bytes
@@ -112,7 +104,7 @@ sampleProgram = do
   put "/artist/0" "juan"
   get "/artist/0"
 
-runSampleProgram = interpretRest sampleProgram
+runSampleProgram = foldFree interpRestIO sampleProgram
 
 -- Test the intepreter for the cloud DSL that used the REST DSL.
 sampleCloudFilesProgram :: Free CloudFilesF ()
@@ -124,8 +116,29 @@ sampleCloudFilesProgram = do
 
 -- | Run the sample program using the REST interpreter.
 runSampleCloudProgram =
-  interpretRest $ foldFree interpretCloudWithRest sampleCloudFilesProgram
+  foldFree interpRestIO $ foldFree cloudFtoRestM sampleCloudFilesProgram
 
--- | Run the sample program using the loging interpreter.
-runSampleCloudProgram1 =
-  interpretLog $ foldFree interpretCloudWithLogging sampleCloudFilesProgram
+interpretClouldFilesProgram :: Free CloudFilesF a -> IO a
+interpretClouldFilesProgram = foldFree interpLogRestIO . foldFree addLogToRest
+
+runSampleCloudProgram1 = interpretClouldFilesProgram sampleCloudFilesProgram
+
+-- | The upshot after doing these exercises seems to be that the interpreters
+-- always have type:
+--
+--     f a -> m a
+--
+-- where `f` is a functor and `m` is a monad. In case we are interpreting
+-- functors in terms of other functors, `m` will be the free monad.
+--
+--     f a -> Free g a
+--
+-- for some other functor `g`.
+--
+-- At the borders of the application, we will be using mostly an iterpreter
+-- with type:
+--
+--    f a -> IO a
+--
+
+
