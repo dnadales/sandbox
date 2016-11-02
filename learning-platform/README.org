@@ -2,7 +2,7 @@
   Can free monads be used in the context of a web-application? What about monad
   transformers? How do they compare?
 
-  This project aims at acting as an enabler to experimenting with different
+  This project aims at acting as an enabler for experimenting with different
   concepts and functional design patterns. 
 *** The problem
     [[http://www.wsj.com/articles/SB10001424053111903480904576512250915629460][Software is eating the world]], and education seems to be an area where there
@@ -11,12 +11,12 @@
     with functional programming techniques and tools, we will try to free
     students from big corporations and tycoons.
 
-    We will carry out our musings in a simplified context, which is described
-    next.
+    We will carry out our exercises and musings in a simplified context, which is
+    described next.
 
     We have different *skills*, and *students* wanting to acquire those skills.
     To acquire a *skill* a student must complete a set of *exercises*
-    associated with that skill. A *skill* might /depend/ on another *skill*.
+    associated with that skill. A *skill* might /depend/ on another *skills*.
 
     We want to develop a software-system that allows to:
     - /create/ a *user*
@@ -33,3 +33,4 @@
         if the student has acquired all the skills required by *S*.
       - A student is considered to have a skill only if all the exercises for
         that skill have been completed.
+      - There cannot be circular dependencies among skills.
