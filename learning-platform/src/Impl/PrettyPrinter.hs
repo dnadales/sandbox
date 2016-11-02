@@ -6,6 +6,7 @@ module Impl.PrettyPrinter where
 import           Control.Monad.IO.Class
 import           Data.Monoid
 import           DSL.LearningPlatformMTL
+import           Prelude                 hiding (log)
 
 data PrettyPrinterI m a =
   PrettyPrinterI {runPrettyPrinter :: m a}
@@ -51,4 +52,18 @@ instance MonadIO m => LearningPlatformDSL (PrettyPrinterI m) where
 
 add elem = liftIO $ putStrLn msg
     where msg = "add" <> show elem
+
+-- | This implementation also has to provide an instance for LogDSL, otherwise
+-- we cannot interweave the different aspects as follows:
+--
+-- @
+--     runStdoutLogging $ runPrettyPrinter scenario :: IO ()
+-- @
+--
+-- Note that you could have defined @PrettyPrinterI@ as a monad-transformer and
+-- implemented @lift@:
+--
+-- > lift = PrettyPrinterI
+instance LogDSL m => LogDSL (PrettyPrinterI m) where
+  log level msg = PrettyPrinterI $ log level msg
 

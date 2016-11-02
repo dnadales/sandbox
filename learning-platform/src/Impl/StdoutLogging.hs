@@ -9,7 +9,7 @@ import qualified Data.Text               as T
 import           DSL.LearningPlatformMTL
 
 newtype StdoutLoggingI m a =
-  StdoutLoggingI {runStdoutLoggingI :: m a}
+  StdoutLoggingI {runStdoutLogging :: m a}
   deriving (Monad, Functor, Applicative, MonadIO)
 
 instance MonadIO m => LogDSL (StdoutLoggingI m) where

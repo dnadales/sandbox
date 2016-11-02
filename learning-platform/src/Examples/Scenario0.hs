@@ -7,6 +7,8 @@ import           Data.Foldable
 import           Data.Monoid
 import qualified Data.Text               as T
 import           DSL.LearningPlatformMTL
+import           Impl.PrettyPrinter
+import           Impl.StdoutLogging
 import           Prelude                 hiding (log)
 
 s0 = Skill "Algebra"
@@ -60,7 +62,7 @@ scenario = do
 
 -- * Running the scenarios
 
--- For running the scenarios you'd need a specific instance of the
+-- | For running the scenarios you'd need a specific instance of the
 -- LearningPlatformDSL. For instance:
 --
 -- > runPrettyPrinter (addUsers :: PrettyPrinterI IO ())
@@ -69,10 +71,16 @@ scenario = do
 -- not provide a @LogDSL@ instance. We could use @runStdoutLogging@.
 --
 -- Which one is correct?
+--
 -- @
 --   runStdoutLogging $ runPrettyPrinter scenario :: IO ()
 --
 --   runPrettyPrinter $ runStdoutLogging scenario :: IO ()
 -- @
 --
-
+-- Well this depends what do you consider to be logical. In the first case,
+-- @PrettyPrinterI@ has to provide an instance for @LogDSL@, provided that its
+-- inner monad is (which is no problem). In the second case, the
+-- @StdoutLoggingI@ has to provide an instance of for @LearningPlatformDSL@
+runScenario :: IO ()
+runScenario = runStdoutLogging $ runPrettyPrinter scenario
