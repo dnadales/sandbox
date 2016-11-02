@@ -1,0 +1,35 @@
+* A learning platform mockup
+  Can free monads be used in the context of a web-application? What about monad
+  transformers? How do they compare?
+
+  This project aims at acting as an enabler to experimenting with different
+  concepts and functional design patterns. 
+*** The problem
+    [[http://www.wsj.com/articles/SB10001424053111903480904576512250915629460][Software is eating the world]], and education seems to be an area where there
+    is a lot of money to be made. We believe education should be a human right,
+    and therefore we want to build an open platform for online learning. Armed
+    with functional programming techniques and tools, we will try to free
+    students from big corporations and tycoons.
+
+    We will carry out our musings in a simplified context, which is described
+    next.
+
+    We have different *skills*, and *students* wanting to acquire those skills.
+    To acquire a *skill* a student must complete a set of *exercises*
+    associated with that skill. A *skill* might /depend/ on another *skill*.
+
+    We want to develop a software-system that allows to:
+    - /create/ a *user*
+    - /create/ a *skill*
+    - /create/ an *exercise*
+    - /add/ an *exercise* to a *skill*
+    - /complete/ an *exercise*  by a *user*
+    - /list/ the *skills* of a *user*
+
+
+***** Constraints
+      The system has some restrictions:
+      - A student can only start an *exercise* belonging to a *skill* *S* only
+        if the student has acquired all the skills required by *S*.
+      - A student is considered to have a skill only if all the exercises for
+        that skill have been completed.
