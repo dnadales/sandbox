@@ -1,8 +1,8 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-import Control.Monad.IO.Class
-import Control.Monad.Trans.Class
-import Prelude hiding (log)
+import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Class
+import           Prelude                   hiding (log)
 
 --------------------------------------------------------------------------------
 -- The API for cloud files.
@@ -98,3 +98,35 @@ app = do
 main :: IO ()
 main =
   runStdoutLoggingT (runRestClient (runCloudFilesRestT (runCloudFilesLogging app)))
+
+-- | The types involved:
+--app :: (MonadCloud m, MonadLog m) => m ()
+--
+--runCloudFilesLogging app :: m a
+--
+--runCloudFilesLogging :: CloudFilesLogT m a -> m a
+--
+--runCloudFilesRestT :: CloudFilesRestT m a -> m a
+--
+--runRestClient :: RestClientT m a  -> m a
+--
+--runStdoutLoggingT :: StdoutLoggingT m a -> m a
+--
+---- =>
+--
+--runStdoutLoggingT (runRestClient (runCloudFilesRestT (runCloudFilesLogging app))) :: IO ()
+--
+--runRestClient (runCloudFilesRestT (runCloudFilesLogging app)) ::  StdoutLoggingT IO ()
+--
+---- =>
+--
+--runCloudFilesRestT (runCloudFilesLogging app) :: RestClientT IO ()
+--
+---- =>
+--
+--runCloudFilesLogging app :: CloudFilesRestT IO ()
+--
+---- =>
+--
+--app :: CloudFilesLogT IO ()
+--
