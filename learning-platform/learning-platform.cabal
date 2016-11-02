@@ -13,9 +13,13 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     LearningPlatformMTL
+  exposed-modules:     DSL.LearningPlatformMTL
+                     , Impl.PrettyPrinter
+                     , Impl.StdoutLogging
+                     , Examples.Scenario0
   build-depends:       base >= 4.7 && < 5
                      , text >= 1.2
+                     , transformers >= 0.4
   default-language:    Haskell2010
 
 executable learning-platform
