@@ -319,7 +319,7 @@
   runState :: State s a -> s -> a
   -- => {replacing 's' in our context}
   runState :: State Counter a -> Counter -> a
-  -- => {type constraints, the first argument of runState must be of type ...}
+  -- => {type constraints, the first argument of runState must be of type `State Counter a`}
   runReaderT ( runWriterT mComputation' ) 15 :: State Counter a
   #+END_SRC
 
