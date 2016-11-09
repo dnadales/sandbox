@@ -17,6 +17,7 @@ library
   hs-source-dirs:      src
   exposed-modules:     Toy
                      , CloudFiles
+                     , TestDSL
   build-depends:       base >= 4.7 && < 5
                      , free >= 4
                      , split >= 0.2.3
