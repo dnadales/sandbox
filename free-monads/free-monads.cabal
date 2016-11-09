@@ -18,6 +18,7 @@ library
   exposed-modules:     Toy
                      , CloudFiles
                      , TestDSL
+                     , TestDSLGADTs
   build-depends:       base >= 4.7 && < 5
                      , free >= 4
                      , split >= 0.2.3

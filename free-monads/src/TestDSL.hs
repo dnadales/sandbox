@@ -18,7 +18,7 @@ select :: e -> Free (TestCommand e) ()
 select e = liftF $ Select e ()
 
 
--- | An sample program:
+-- | A sample program:
 test :: Free (TestCommand e) ()
 test = do
   p <- create Project
