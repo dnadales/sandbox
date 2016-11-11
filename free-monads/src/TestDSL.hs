@@ -17,11 +17,14 @@ create et = liftF $ Create et id
 select :: e -> Free (TestCommand e) ()
 select e = liftF $ Select e ()
 
+createN :: Int -> EntityType -> Free (TestCommand e) [e]
+createN n et = mapM (const $ create et) [0..n-1]
 
 -- | A sample program:
 test :: Free (TestCommand e) ()
 test = do
   p <- create Project
+  ps <- createN 10 Project
   select p
   _ <- create Site
   return ()

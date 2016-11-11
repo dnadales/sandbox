@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DeriveFunctor #-}
 -- | What if we want to stop the interpreter as soon as an error occurs?
 
@@ -97,4 +98,21 @@ interp t@(Count e fNext) = do
 run :: (Show r) => TestM r -> IO ()
 run test = do
   r <- runEitherT $ evalStateT (foldFree interp test) []
+  putStrLn (show r)
+
+-- | We could also compose the mondas using type constraints.
+interpM :: (MonadState [Elem] m, MonadIO m) => TestF r -> EitherT String m r
+interpM (Put "Pinneaple" next) =
+  left "you cannot put pinneaples here!"
+interpM (Put e next) = do
+  modify (e:)
+  liftIO $ putStrLn $ "Putting " ++ e
+  return next
+interpM (Count e fNext) = do
+  nElems <- gets (length . filter (== e))
+  return (fNext nElems)
+
+run' :: (Show r) => TestM r -> IO ()
+run' test = do
+  r <- evalStateT (runEitherT (foldFree interpM test)) []
   putStrLn (show r)
