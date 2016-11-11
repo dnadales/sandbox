@@ -19,6 +19,7 @@ library
                      , CloudFiles
                      , TestDSL
                      , TestDSLGADTs
+                     , TestDSLGADTs2
                      , TestDSLExceptions
   build-depends:       base >= 4.7 && < 5
                      , comonad >= 4.2
