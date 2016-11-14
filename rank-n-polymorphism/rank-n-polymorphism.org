@@ -1,0 +1,33 @@
+* Intro
+  Consider the identity function:
+  #+BEGIN_SRC haskell
+  id :: a -> a
+  id x = x
+  #+END_SRC
+  The first thing to notice is that *the function is fully determined by its
+  type!*. It *must* be the identity function.
+  
+  The identity function is actually describing a *family* of functions:
+  #+BEGIN_SRC haskell
+  {-# LANGUAGE RankNTypes #-}
+
+  id :: forall a. a -> a
+  id x = x
+  #+END_SRC
+* The N in the rank
+  The more deeply nested the ~forall~ keyword is, the higher the rank. For
+  instance, the following function is rank 2 polymorphic:
+  #+BEGIN_SRC haskell
+  someInt :: (forall a. a -> a) -> Integer
+  #+END_SRC
+
+  And this is rank 3, since the quantifier is in the third level of necessary
+  parenthesis.
+  #+BEGIN_SRC haskell
+  someOtherInt :: ((forall a. a -> a) -> Integer) -> Integer
+  #+END_SRC
+* Example: Random numbers
+  
+* References
+  - [[http://citeseer.ist.psu.edu/viewdoc/summary?doi=10.1.1.59.8232][Fast and Loose Reasoning is Morally Correct (2006)]]
+  - https://ocharles.org.uk/blog/guest-posts/2014-12-18-rank-n-types.html
