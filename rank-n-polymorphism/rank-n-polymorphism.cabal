@@ -1,0 +1,45 @@
+name:                rank-n-polymorphism
+version:             0.1.0.0
+synopsis:            Initial project template from stack, using hspec and quickcheck
+description:         Please see README.md
+homepage:            https://github.com/capitanbatata/rank-n-polymorphism#readme
+license:             BSD3
+license-file:        LICENSE
+author:              Damian Nadales
+maintainer:          damian.nadales@gmail.com
+copyright:           2016 Damian Nadales
+category:            Web
+build-type:          Simple
+-- extra-source-files:
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     RandomNumbers
+                     , ScottVsChurchEncoding
+  build-depends:       base >= 4.7 && < 5
+                     , random >= 1.1
+  default-language:    Haskell2010
+
+executable rank-n-polymorphism
+  hs-source-dirs:      app
+  main-is:             Main.hs
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       base
+                     , rank-n-polymorphism
+  default-language:    Haskell2010
+
+test-suite rank-n-polymorphism-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Spec.hs
+  build-depends:       base
+                     , rank-n-polymorphism
+                     , hspec
+                     , QuickCheck
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  default-language:    Haskell2010
+
+source-repository head
+  type:     git
+  location: https://github.com/capitanbatata/rank-n-polymorphism

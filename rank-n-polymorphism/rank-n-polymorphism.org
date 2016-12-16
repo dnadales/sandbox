@@ -7,13 +7,15 @@
   The first thing to notice is that *the function is fully determined by its
   type!*. It *must* be the identity function.
   
-  The identity function is actually describing a *family* of functions:
+  The identity function is actually describing a *family* of functions, i.e.
+  it is a function for all types ~a~:
   #+BEGIN_SRC haskell
   {-# LANGUAGE RankNTypes #-}
 
   id :: forall a. a -> a
   id x = x
   #+END_SRC
+
 * The N in the rank
   The more deeply nested the ~forall~ keyword is, the higher the rank. For
   instance, the following function is rank 2 polymorphic:
@@ -26,7 +28,22 @@
   #+BEGIN_SRC haskell
   someOtherInt :: ((forall a. a -> a) -> Integer) -> Integer
   #+END_SRC
+
 * Example: Random numbers
+  Why study this, isn't better to use a simpler example (that I think captures
+  the essence of random-numbers example). For instance, write a function that
+  takes:
+  - A function ~a~ of a to string 
+  - An element of type ~b~, say ~x~
+  - An element of type ~c~, say ~y~
+
+    
+  And it returns the concatenation of the strings representations of ~x~ and
+  ~y~.
+
+* Example: Scott vs. Church encoding
+  
+* Example: The ST monad
   
 * References
   - [[http://citeseer.ist.psu.edu/viewdoc/summary?doi=10.1.1.59.8232][Fast and Loose Reasoning is Morally Correct (2006)]]
