@@ -53,8 +53,44 @@ nilS = ListS (\_ ni -> ni)
 consS :: a -> ListS a -> ListS a
 consS x xss = ListS (\co _ -> co x xss)
 
+-- Define a functor instance for the Scott encoding.
+instance Functor ListS where
+  -- fmap :: (a -> b) -> ListS a -> ListS b
+  -- unconsS :: (a -> ListS a -> ListS b) -> ListS b -> ListS b, when r is ListS b
+  fmap f uas = (unconsS uas) (\x uas' -> consS (f x) (fmap f uas')) nilS
+
+
 infixr 5 `consS`
 ass :: ListS Int
 ass = 0 `consS` 1 `consS` 2 `consS` 3 `consS` nilS
 
 r1 = sumS ass
+
+r2 = sumS (fmap (+1) ass)
+
+-- * Church encoding.
+
+-- Remember: foldr :: (a -> r -> r) -> r -> [a] -> r
+
+newtype ListC a =
+  -- Is this a fold right or a fold left?
+  ListC {foldC :: forall r. (a -> r -> r) -> r -> r}
+
+nilC :: ListC a
+nilC = ListC $ \_ ni -> ni
+
+consC :: a -> ListC a -> ListC a
+consC x fas = ListC $ \co ni -> (foldC fas) co (co x ni)
+
+-- Write a mapping function.
+instance Functor ListC where
+  --(foldC fas) :: forall r. (a -> r -> r) -> r -> r
+  fmap f fas =  (foldC fas) (\x fbs -> consC (f x) fbs) nilC
+
+infixr 5 `consC`
+fxs :: ListC Int
+fxs = 0 `consC` 1 `consC` 2 `consC` 3 `consC` nilC
+
+r3 = (foldC fxs) (\x r -> x + r) 0
+
+r4 = (foldC fxs) (\x r -> r ++(show x)) ""
