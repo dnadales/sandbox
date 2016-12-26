@@ -56,6 +56,9 @@ evil =
 --
 -- I think the upshot here is that @runST'@ has to return the same type @a@ for
 -- all the states @s@, and this makes it impossible for @s@ to appear in the
--- result.
+-- result. Or put in a different way:
+--
+--     "The main restriction is that a higher rank quantified type will not be
+--     allowed to leak out of its scope."
 --
 -- See also: https://en.wikibooks.org/wiki/Haskell/Polymorphism
