@@ -1,0 +1,13 @@
+* Functional programming in Scala in Haskell
+
+Some exercises from the book [[https://www.manning.com/books/functional-programming-in-scala][Functional Programming in Scala]] implemented in
+Haskell.
+
+*** Generating html with pandoc
+    If an html document is desired out of the literate-haskell source it is
+    possible to run:
+    #+BEGIN_SRC sh
+    pandoc -s -f markdown+lhs -t html src/ChapterXX/YY.lhs -o YY.html
+    #+END_SRC
+    Maybe I will implement a better way to generate documentation for the whole
+    chapters using a tool like [[https://jaspervdj.be/hakyll/index.html][Hakyll]].
