@@ -129,3 +129,16 @@ Then making `h = (\z w -> \y -> k w (f y z))}` we have:
 > foldlViaFold f v xs = (foldr (\z w -> \y -> w (f y z)) id) xs v
 
 > zs' = foldlViaFold (flip (:)) [] xs
+
+Can we define `foldr` in terms of `foldl`
+----------------------------------------
+
+Only for finite lists! For some context and additional information see [this SO
+question](http://stackoverflow.com/questions/41686292/why-it-is-not-possible-to-redefine-implement-foldr-in-terms-of-foldl).
+
+> foldr' :: (a -> b -> b) -> b -> [a] -> b
+> foldr' f v xs = foldl (\g u x -> g (f u x)) id xs v
+> -- And let's try this with some examples:
+> ys' = foldr' (:) [] xs
+> ex0 = foldr (+) 0 [0..20]
+> ex0' = foldr' (+) 0 [0..20]
