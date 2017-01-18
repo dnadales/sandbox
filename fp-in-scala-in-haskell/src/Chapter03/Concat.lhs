@@ -31,4 +31,28 @@ ghci> length $ concatN (mkLists 10000)
 50015001
 ghci> length $ concatL (mkLists 10000)
 -- Takes a long time!
+50015001
 ```
+
+What about a tail-recursive implementation of `concat`?
+
+> concatLT :: [[a]] -> [a]
+> concatLT xs = concatLT' [] xs
+>   where concatLT' acc [] = acc
+>         concatLT' acc ([]: yss) = concatLT' acc yss
+>         concatLT' acc ((x:xs):yss) = concatLT' (x:acc) (xs:yss)
+>
+
+It is still slow!
+
+Let's try with some auxiliary functions...
+
+>
+> append :: [a] -> [a] -> [a]
+> append xs ys = foldr ((:)) ys xs
+>
+> concat3 :: [[a]] -> [a]
+> concat3 xss = foldr (append) [] xss
+
+Can we benchmark this?
+
