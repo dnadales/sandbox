@@ -7,7 +7,7 @@ use [stack](https://docs.haskellstack.org/en/stable/README/):
 stack build
 ```
 
-Then, play with the functions defined in the `src` repository by firing up the
+Then, play with the functions defined in the `src` directory by firing up the
 REPL:
 
 ```bash
