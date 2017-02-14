@@ -15,7 +15,8 @@ instance Show (NamedType t) where
   show (ABool name) = name ++ ": Bool"
   show (AString name) = name ++ ": String"
   
-data Attribute = forall t . Attribute (NamedType t)
+data Attribute where
+  Attribute :: NamedType t -> Attribute
 
 instance Show Attribute where
   show (Attribute t) = show t
@@ -25,7 +26,7 @@ class Introspectable a where
   getAttributes :: a -> [Attribute]
   -- | Get an the value for the given attribute.
   getValue :: a -> NamedType t -> Maybe t
-
+  
 -- * Some instances.
 data Vehicle = Vehicle { vColor :: String
                        , numberOfWheels  :: Int
@@ -85,3 +86,31 @@ a1 = Animal False "purple" 2 16
 -- > fmap (10 + ) $ getValue v1 (AString "color")
 --
 -- will result in a compile time error.
+--
+-- Problem with this implementation: you cannot use the list returned by
+-- 'getAttributes', and you cannot define:
+--  
+-- > getType :: Attribute -> NamedType t
+-- > getType (Attribute nt) = nt
+--
+-- If you try this you'll get an error like the following:
+--
+-- >   • Couldn't match type ‘t1’ with ‘t’
+-- >      ‘t1’ is a rigid type variable bound by
+-- >        a pattern with constructor:
+-- >          Attribute :: forall t. NamedType t -> Attribute,
+-- >        in an equation for ‘getType’
+-- >        at src/Introspectable.hs:24:10
+-- >      ‘t’ is a rigid type variable bound by
+-- >        the type signature for:
+-- >          getType :: forall t. Attribute -> NamedType t
+-- >        at src/Introspectable.hs:23:12
+-- >      Expected type: NamedType t
+-- >        Actual type: NamedType t1
+-- >    • In the expression: nt
+-- >      In an equation for ‘getType’: getType (Attribute nt) = nt
+-- >    • Relevant bindings include
+-- >        nt :: NamedType t1 (bound at src/Introspectable.hs:24:20)
+-- >        getType :: Attribute -> NamedType t
+-- >          (bound at src/Introspectable.hs:24:1)
+--
