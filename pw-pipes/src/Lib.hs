@@ -9,6 +9,7 @@ module Lib
     , listFilesIn
     ) where
 
+import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Data.ByteString           (ByteString)
@@ -16,6 +17,7 @@ import           Data.DirStream
 import           Data.Text                 (Text)
 import qualified Data.Text                 as T
 import           Data.Text.Encoding
+import qualified Filesystem.Path           as FS
 import           Filesystem.Path.CurrentOS (decodeString, encodeString)
 import           Pipes
 import qualified Pipes.ByteString          as PB
@@ -27,17 +29,18 @@ import qualified Pipes.Text.Encoding       as PT
 import           System.Directory
 import qualified System.IO                 as IO
 
-
 someFunc :: IO ()
 someFunc = putStrLn "someFunc"
 
+-- | Count the lines that pass through this pipe.
 countLinesPp :: Monad m => Pipe Text Int m ()
 countLinesPp = forever $
   await >>= yield . length . T.lines
 
+-- | Count the lines of a file.
 countFileLines :: FilePath -> Producer Int (SafeT IO) ()
 countFileLines fPath =
-  readFile' fPath >-> countLinesPp
+  readFileAsText fPath >-> countLinesPp
 
 -- | Pass only the existing files.
 existingFiles :: MonadIO m => Pipe FilePath FilePath m ()
@@ -69,8 +72,8 @@ printLineCount fPath = do
   print $ "Number of lines in " ++ fPath ++ ": " ++ (show sum)
   where files = yield fPath >-> existingFiles >-> readableFiles
 
-readFile' :: FilePath -> Producer' Text (SafeT IO) ()
-readFile' fPath =
+readFileAsText :: FilePath -> Producer' Text (SafeT IO) ()
+readFileAsText fPath =
   readFileBS fPath >-> decodeUtf8Pp
 
 decodeUtf8Pp :: Monad m => Pipe ByteString Text m ()
@@ -86,17 +89,26 @@ readFileBS file =
 catFiles :: Pipe FilePath Text (SafeT IO) ()
 catFiles = forever $ do
   fPath <- await
-  for (readFile' fPath) yield
+  for (readFileAsText fPath) yield
 
 one :: Monad m => Pipe a Int m ()
 one = await >> yield 1 >> one
+
+myDescentOf :: MonadSafe m => FS.FilePath -> ListT m FS.FilePath
+myDescentOf path = do
+  child <- childOf path
+  isDir <- liftIO $ isDirectory child
+  isSymLink <- liftIO $ pathIsSymbolicLink (encodeString child)
+  if isDir && not isSymLink
+    then return child <|> myDescentOf child
+    else return child
 
 -- | List the files in a directory.
 listFilesIn :: FilePath -> IO ()
 listFilesIn fPath = do
   IO.withFile "mystdout" IO.WriteMode $ \h ->
     runSafeT $ runEffect $
-           every (descendentOf (decodeString fPath))
+           every (myDescentOf (decodeString fPath))
        >-> PP.map encodeString
        >-> readableFiles
        >-> existingFiles
@@ -108,7 +120,7 @@ listFilesIn fPath = do
 countFilesIn :: FilePath -> IO ()
 countFilesIn fPath = do
   sum <- runSafeT $ PP.sum $
-         every (descendentOf (decodeString fPath))
+         every (myDescentOf (decodeString fPath))
      >-> PP.map encodeString
      >-> readableFiles
      >-> existingFiles
@@ -120,7 +132,7 @@ countFilesIn fPath = do
 printLinesIn :: FilePath -> IO ()
 printLinesIn fPath = do
   sum <- runSafeT $ PP.sum $
-        every (descendentOf (decodeString fPath))
+        every (myDescentOf (decodeString fPath))
     >-> PP.map encodeString
     >-> readableFiles
     >-> existingFiles
