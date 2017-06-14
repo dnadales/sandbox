@@ -7,6 +7,9 @@ module Lib
     , printLinesIn
     , countFilesIn
     , listFilesIn
+    , concatFilesIn
+    , catFile
+    , concatFilesInStr
     ) where
 
 import           Control.Applicative
@@ -22,6 +25,7 @@ import           Filesystem.Path.CurrentOS (decodeString, encodeString)
 import           Pipes
 import qualified Pipes.ByteString          as PB
 import qualified Pipes.Prelude             as PP
+import qualified Pipes.Prelude.Text        as PPT
 import           Pipes.Safe                (MonadSafe, SafeT, bracket, liftBase,
                                             runSafeT)
 import           Pipes.Safe.Prelude        (withFile)
@@ -35,7 +39,7 @@ someFunc = putStrLn "someFunc"
 -- | Count the lines that pass through this pipe.
 countLinesPp :: Monad m => Pipe Text Int m ()
 countLinesPp = forever $
-  await >>= yield . length . T.lines
+  await >>= yield . length . filter T.null . T.lines
 
 -- | Count the lines of a file.
 countFileLines :: FilePath -> Producer Int (SafeT IO) ()
@@ -72,6 +76,15 @@ printLineCount fPath = do
   print $ "Number of lines in " ++ fPath ++ ": " ++ (show sum)
   where files = yield fPath >-> existingFiles >-> readableFiles
 
+-- | Cat a file
+catFile :: FilePath -> IO ()
+catFile fPath = do
+  sum <- runSafeT $ runEffect $
+         files >-> catFiles >-> PP.map T.unpack >-> PP.stdoutLn
+  print $ "Number of lines in " ++ fPath ++ ": " ++ (show sum)
+  where files = yield fPath >-> existingFiles >-> readableFiles
+
+
 readFileAsText :: FilePath -> Producer' Text (SafeT IO) ()
 readFileAsText fPath =
   readFileBS fPath >-> decodeUtf8Pp
@@ -90,6 +103,11 @@ catFiles :: Pipe FilePath Text (SafeT IO) ()
 catFiles = forever $ do
   fPath <- await
   for (readFileAsText fPath) yield
+
+catFiles' :: Pipe FilePath Text (SafeT IO) ()
+catFiles' = forever $ do
+  fPath <- await
+  bracket (IO.openFile fPath IO.ReadMode) (IO.hClose) PPT.fromHandleLn
 
 one :: Monad m => Pipe a Int m ()
 one = await >> yield 1 >> one
@@ -129,6 +147,11 @@ countFilesIn fPath = do
   print $ "Total number of lines of files under " ++ fPath ++ ": " ++ (show sum)
 
 -- | Print the total number of lines of all the files in a directory.
+--
+-- This should implement:
+--
+-- > find $fPath -type f -print | xargs cat | wc -l
+--
 printLinesIn :: FilePath -> IO ()
 printLinesIn fPath = do
   sum <- runSafeT $ PP.sum $
@@ -137,6 +160,55 @@ printLinesIn fPath = do
     >-> readableFiles
     >-> existingFiles
     >-> regularFiles
-    >-> catFiles
-    >-> countLinesPp
+    >-> catFiles'
+    >-> one
+--    >-> countLinesPp
   print $ "Total number of lines under directory " ++ fPath ++ ": " ++ (show sum)
+
+-- | Make a huge file by concatenating all the files in the directory.
+concatFilesIn :: FilePath -> IO ()
+concatFilesIn fPath = do
+  IO.withFile "mylargefile" IO.WriteMode $ \h ->
+    runSafeT $ runEffect $
+           every (myDescentOf (decodeString fPath))
+       >-> PP.map encodeString
+       >-> readableFiles
+       >-> existingFiles
+       >-> regularFiles
+       >-> catFiles'
+       >-> PP.map T.unpack
+       >-> PP.toHandle h
+
+readFileAsStr :: Pipe FilePath String (SafeT IO) ()
+readFileAsStr = forever $ do
+  fPath <- await
+  bracket (IO.openFile fPath IO.ReadMode) (IO.hClose) PP.fromHandle
+
+-- This will fail when trying to convert to the file contents to utf 8 it seems:
+--
+-- > *** Exception: /usr/include/php/ext/standard/php_ext_syslog.h: hGetLine: invalid argument (invalid byte sequence)
+--
+-- Maybe we just need to count the number of new-lines:
+--
+--   - http://www.scs.stanford.edu/16wi-cs240h/slides/iteratee-slides.html#(15)
+--
+-- > L8.break (== '\n')
+--
+concatFilesInStr :: FilePath -> IO ()
+concatFilesInStr fPath = do
+  IO.withFile "mylargefileStr" IO.WriteMode $ \h ->
+    runSafeT $ runEffect $
+           every (myDescentOf (decodeString fPath))
+       >-> PP.map encodeString
+       >-> readableFiles
+       >-> existingFiles
+       >-> regularFiles
+       >-> readFileAsStr
+       >-> PP.toHandle h
+
+-- TODO: look at how the Turtle library handles this:
+--
+-- >
+
+-- TODO: test with /usr/include/php/ext/standard/
+-- TODO: test with `/usr/include/libkern`
