@@ -18,6 +18,7 @@ library
   exposed-modules:     Lib
                      , DirMetricsTurtle
                      , DirMetricsPipes
+                     , DirMetricsConcur
   build-depends:       base >= 4.7 && < 5
                      , pipes
                      , text
@@ -32,6 +33,8 @@ library
                      , pipes-text
                      , turtle
                      , foldl
+                     , pipes-concurrency
+                     , async
   default-language:    Haskell2010
 
 executable pw-pipes-exe

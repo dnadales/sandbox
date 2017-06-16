@@ -6,6 +6,10 @@ module DirMetricsPipes
   ( printLinesCountIn
   , catDir
   , printFilesCountIn
+  , regularFilesIn
+  , byteStringAsText
+  , countLines
+  , fileContents
   ) where
 
 import           Control.Applicative
@@ -70,8 +74,18 @@ countLines = forever $
 -- | List the contents of a file.
 fileContents :: (MonadSafe m, MonadIO m) => FilePath -> Producer' ByteString m ()
 fileContents fPath =
-  bracket (liftIO (openFile fPath ReadMode)) (liftIO . hClose) (PBS.fromHandle)
+ bracket (liftIO (tryOpen fPath)) (liftIO . tryClose) tryRead
+ where tryOpen fPath = do
+         perm <- getPermissions fPath
+         if readable perm
+           then Just <$> openFile fPath ReadMode
+           else return $ Nothing
 
+       tryClose Nothing  = return ()
+       tryClose (Just h) = hClose h
+
+       tryRead Nothing  = return ()
+       tryRead (Just h) = PBS.fromHandle h
 -- |
 dirContents :: (MonadSafe m, MonadIO m) => FilePath -> Producer' ByteString m ()
 dirContents fPath = for (every (regularFilesIn fPath)) fileContents
