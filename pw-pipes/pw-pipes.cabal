@@ -17,6 +17,7 @@ library
   hs-source-dirs:      src
   exposed-modules:     Lib
                      , DirMetricsTurtle
+                     , DirMetricsPipes
   build-depends:       base >= 4.7 && < 5
                      , pipes
                      , text

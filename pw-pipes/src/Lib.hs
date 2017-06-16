@@ -1,7 +1,6 @@
 {-# LANGUAGE RankNTypes #-}
 module Lib
-    ( someFunc
-    , countLinesPp
+    ( countLinesPp
     , printLineCount
     , countFileLines
     , printLinesIn
@@ -32,9 +31,6 @@ import           Pipes.Safe.Prelude        (withFile)
 import qualified Pipes.Text.Encoding       as PT
 import           System.Directory
 import qualified System.IO                 as IO
-
-someFunc :: IO ()
-someFunc = putStrLn "someFunc"
 
 -- | Count the lines that pass through this pipe.
 countLinesPp :: Monad m => Pipe Text Int m ()
@@ -205,10 +201,6 @@ concatFilesInStr fPath = do
        >-> regularFiles
        >-> readFileAsStr
        >-> PP.toHandle h
-
--- TODO: look at how the Turtle library handles this:
---
--- >
 
 -- TODO: test with /usr/include/php/ext/standard/
 -- TODO: test with `/usr/include/libkern`

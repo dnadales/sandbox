@@ -79,6 +79,6 @@ printLinesCountIn' fPath = do
   count <- T.fold (inputDir' fPath) T.countLines
   print count
 
--- -- | Cat the dir file contents.
+-- | Cat the directory contents.
 catDir :: T.FilePath -> IO ()
 catDir fPath = T.stdout (inputDir' fPath)

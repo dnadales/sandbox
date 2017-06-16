@@ -1,3 +1,5 @@
+beginning of file00.txt
 Hello
 World
 ∑ 
+No newline at the end.
