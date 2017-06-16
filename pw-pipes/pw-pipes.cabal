@@ -40,7 +40,7 @@ library
 executable pw-pipes-exe
   hs-source-dirs:      app
   main-is:             Main.hs
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  ghc-options:         -O2 -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
                      , pw-pipes
   default-language:    Haskell2010
@@ -54,6 +54,16 @@ test-suite pw-pipes-test
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010
 
+benchmark pw-pipes-bench
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      bench
+  main-is:             PWPipesBench.hs
+  build-depends:       base
+                     , pw-pipes
+                     , criterion
+  ghc-options:         -O2 -threaded -rtsopts -with-rtsopts=-N
+  default-language:    Haskell2010  
+  
 source-repository head
   type:     git
   location: https://github.com/githubuser/pw-pipes

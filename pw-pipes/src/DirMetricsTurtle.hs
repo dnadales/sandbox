@@ -8,15 +8,16 @@ module DirMetricsTurtle
   , catDir
   ) where
 
-import qualified Control.Foldl            as F
-import           Data.ByteString          (ByteString)
-import qualified Data.ByteString          as BS
-import qualified Data.List.NonEmpty       as NE
-import qualified Data.Text                as Tx
+import qualified Control.Foldl             as F
+import           Data.ByteString           (ByteString)
+import qualified Data.ByteString           as BS
+import qualified Data.List.NonEmpty        as NE
+import qualified Data.Text                 as Tx
 import           Data.Text.Encoding
 import           Data.Text.Encoding.Error
-import qualified Turtle                   as T
-import qualified Turtle.Bytes             as TB
+import           Filesystem.Path.CurrentOS (decodeString)
+import qualified Turtle                    as T
+import qualified Turtle.Bytes              as TB
 
 -- | Returns true iff the file path is not a symlink.
 noSymLink :: T.FilePath -> IO Bool
@@ -74,10 +75,11 @@ inputDir' fPath = do
 
 -- | Print the number of lines in all the files in a directory. Using a more
 -- robust version of `inputDir`.
-printLinesCountIn' :: T.FilePath -> IO ()
+printLinesCountIn' :: FilePath -> IO ()
 printLinesCountIn' fPath = do
-  count <- T.fold (inputDir' fPath) T.countLines
+  count <- T.fold (inputDir' fPath') T.countLines
   print count
+  where fPath' = decodeString fPath
 
 -- | Cat the directory contents.
 catDir :: T.FilePath -> IO ()
