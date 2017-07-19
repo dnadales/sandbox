@@ -20,7 +20,9 @@ import Control.Monad.Except
 
 %monad { ExpParser }
 
-%token 
+%lexer { mLexer } { TokenEOF }
+
+%token
   let { TokenLet }
   in  { TokenIn }
   int { TokenInt $$ }
@@ -36,7 +38,8 @@ import Control.Monad.Except
 %%
 
 Exp :: { Exp }
-    : let var '=' Exp in Exp {% ask >>= \f -> return $ Let (f $2) $4 $6 }
+    : let var '=' Exp in Exp
+    {% ask >>= \env -> return $ Let ((varModifier env) $2) $4 $6 }
     | Exp1                   { $1 }
 
 Exp1 :: { Exp }
@@ -51,7 +54,8 @@ Term :: { Exp }
 
 Factor :: { Exp }
        : int         { Int $1 }
-       | var         {% ask >>= \f -> return $ Var (f $1) }
+       | var
+       {% ask >>= \env -> return $ Var ((varModifier env) $1) }
        | '(' Exp ')' { $2 }
 
 {
@@ -78,24 +82,36 @@ data Token
       | TokenDiv
       | TokenOB
       | TokenCB
+      | TokenEOF
  deriving Show
 
 -- | Parser
-newtype ExpParser a =
-  ExpParser {
-    runExpParser :: ReaderT (String -> String) (Except String) a
+data ParserEnv = ParserEnv
+  { input :: String
+  , varModifier :: String -> String
   }
-  deriving (Functor, Applicative, Monad, MonadReader (String -> String), MonadError String)
+
+newtype ExpParser a = ExpParser 
+  { runExpParser :: ReaderT ParserEnv (Except String) a }
+  deriving ( Functor, Applicative, Monad
+           , MonadReader ParserEnv, MonadError String
+           )
 
 -- | Error
-parseError :: [Token] -> ExpParser a
+parseError :: Token -> ExpParser a
 parseError t = throwError $ "Parse error: " ++ (show t)
 
 -- | Parsing function.
 parse :: (String -> String) -> String -> Either String Exp
-parse f = runExcept . (`runReaderT` f) . runExpParser . calc . lexer
+parse f str = runExcept $ runReaderT (runExpParser calc) initEnv
+  where initEnv = ParserEnv { input = str, varModifier = f}
 
 -- * Lexer functions (TODO: integrate with Alex)
+mLexer :: (Token -> ExpParser a) -> ExpParser a
+mLexer cont = do
+  input <- asks input
+  throwError $ "define a lexer to parse: " ++ input
+
 lexer :: String -> [Token]
 lexer [] = []
 lexer (c:cs) 

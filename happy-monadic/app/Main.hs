@@ -16,4 +16,5 @@ main = traverse_ print $ exprs `zip` map (parse capitalize) exprs
                 , "let bar = 2 + 1 in bar + 1"
                 , " x + let "
                 , " -1 "
+                , "$$?"
                 ]
