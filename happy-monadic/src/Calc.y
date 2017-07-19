@@ -8,6 +8,7 @@ module Calc
 
 import Data.Char
 import Control.Monad.Reader
+import Control.Monad.Except
 
 }
 
@@ -80,16 +81,19 @@ data Token
  deriving Show
 
 -- | Parser
-newtype ExpParser a = ExpParser { runExpParser :: Reader (String -> String) a }
-  deriving (Functor, Applicative, Monad, MonadReader (String -> String))
+newtype ExpParser a =
+  ExpParser {
+    runExpParser :: ReaderT (String -> String) (Except String) a
+  }
+  deriving (Functor, Applicative, Monad, MonadReader (String -> String), MonadError String)
 
 -- | Error
 parseError :: [Token] -> ExpParser a
 parseError t = error $ "Parse error: " ++ (show t)
 
 -- | Parsing function.
-parse :: (String -> String) -> String -> Exp
-parse f = (`runReader` f) . runExpParser . calc . lexer
+parse :: (String -> String) -> String -> Either String Exp
+parse f = runExcept . (`runReaderT` f) . runExpParser . calc . lexer
 
 -- * Lexer functions (TODO: integrate with Alex)
 lexer :: String -> [Token]
