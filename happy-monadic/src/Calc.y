@@ -3,15 +3,21 @@
 module Calc
   ( calc
   , lexer
+  , parse
   ) where
 
 import Data.Char
+import Control.Monad.Reader
 
 }
 
 %name calc
+
 %tokentype { Token }
+
 %error { parseError }
+
+%monad { ExpParser }
 
 %token 
   let { TokenLet }
@@ -29,7 +35,7 @@ import Data.Char
 %%
 
 Exp :: { Exp }
-    : let var '=' Exp in Exp { Let $2 $4 $6 }
+    : let var '=' Exp in Exp {% ask >>= \f -> return $ Let (f $2) $4 $6 }
     | Exp1                   { id $1 }
 
 Exp1 :: { Exp }
@@ -44,7 +50,7 @@ Term :: { Exp }
 
 Factor :: { Exp }
        : int         { Int $1 }
-       | var         { Var $1 }
+       | var         {% ask >>= \f -> return $ Var (f $1) }
        | '(' Exp ')' { id $2 }
 
 {
@@ -73,9 +79,17 @@ data Token
       | TokenCB
  deriving Show
 
+-- | Parser
+newtype ExpParser a = ExpParser { runExpParser :: Reader (String -> String) a }
+  deriving (Functor, Applicative, Monad, MonadReader (String -> String))
+
 -- | Error
-parseError :: [Token] -> a
+parseError :: [Token] -> ExpParser a
 parseError t = error $ "Parse error: " ++ (show t)
+
+-- | Parsing function.
+parse :: (String -> String) -> String -> Exp
+parse f = (`runReader` f) . runExpParser . calc . lexer
 
 -- * Lexer functions (TODO: integrate with Alex)
 lexer :: String -> [Token]

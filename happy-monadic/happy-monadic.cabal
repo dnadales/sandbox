@@ -13,6 +13,7 @@ library
   build-depends:       base
                      , array
                      , containers
+                     , mtl
   default-language:    Haskell2010
 
 executable happy-monadic
