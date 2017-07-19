@@ -37,22 +37,22 @@ import Control.Monad.Except
 
 Exp :: { Exp }
     : let var '=' Exp in Exp {% ask >>= \f -> return $ Let (f $2) $4 $6 }
-    | Exp1                   { id $1 }
+    | Exp1                   { $1 }
 
 Exp1 :: { Exp }
      : Exp1 '+' Term { Plus $1 $3 }
      | Exp1 '-' Term { Minus $1 $3 }
-     | Term          { id $1}
+     | Term          { $1 }
 
 Term :: { Exp }
      : Term '*' Factor { Times $1 $3 }
      | Term '/' Factor { Div $1 $3 }
-     | Factor          { id $1 }
+     | Factor          { $1 }
 
 Factor :: { Exp }
        : int         { Int $1 }
        | var         {% ask >>= \f -> return $ Var (f $1) }
-       | '(' Exp ')' { id $2 }
+       | '(' Exp ')' { $2 }
 
 {
 
@@ -89,7 +89,7 @@ newtype ExpParser a =
 
 -- | Error
 parseError :: [Token] -> ExpParser a
-parseError t = error $ "Parse error: " ++ (show t)
+parseError t = throwError $ "Parse error: " ++ (show t)
 
 -- | Parsing function.
 parse :: (String -> String) -> String -> Either String Exp
