@@ -9,6 +9,8 @@ module Calc
 import Data.Char
 import Control.Monad.Reader
 import Control.Monad.Except
+import Control.Monad.State
+import Lexer
 
 }
 
@@ -69,22 +71,6 @@ data Exp = Let String Exp Exp
          | Int Int
          deriving Show
 
--- | Tokens
-data Token
-      = TokenLet
-      | TokenIn
-      | TokenInt Int
-      | TokenVar String
-      | TokenEq
-      | TokenPlus
-      | TokenMinus
-      | TokenTimes
-      | TokenDiv
-      | TokenOB
-      | TokenCB
-      | TokenEOF
- deriving Show
-
 -- | Parser
 data ParserEnv = ParserEnv
   { input :: String
@@ -92,9 +78,11 @@ data ParserEnv = ParserEnv
   }
 
 newtype ExpParser a = ExpParser 
-  { runExpParser :: ReaderT ParserEnv (Except String) a }
+  { runExpParser :: ReaderT ParserEnv (StateT AlexPosn (Except String) a) }
   deriving ( Functor, Applicative, Monad
-           , MonadReader ParserEnv, MonadError String
+           , MonadReader ParserEnv
+           , MonadState AlexPosn
+           , MonadError String
            )
 
 -- | Error
@@ -103,14 +91,18 @@ parseError t = throwError $ "Parse error: " ++ (show t)
 
 -- | Parsing function.
 parse :: (String -> String) -> String -> Either String Exp
-parse f str = runExcept $ runReaderT (runExpParser calc) initEnv
+parse f str = runExcept $ (`evalStateT` initState) $ runReaderT (runExpParser calc) initEnv
   where initEnv = ParserEnv { input = str, varModifier = f}
+        initState = AlexPn 0 0 0
 
 -- * Lexer functions (TODO: integrate with Alex)
 mLexer :: (Token -> ExpParser a) -> ExpParser a
 mLexer cont = do
   input <- asks input
-  throwError $ "define a lexer to parse: " ++ input
+  let token = alexScanTokens posn input
+  cont token
+
+-- alexScanTokens :: AlexPosn -> String -> Token
 
 lexer :: String -> [Token]
 lexer [] = []

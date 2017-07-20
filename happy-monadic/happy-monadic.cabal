@@ -9,7 +9,9 @@ cabal-version:          >=1.10
 library
   hs-source-dirs:      src    
   exposed-modules:     Calc
-  build-tools:         happy
+                     , Lexer
+  build-tools:         alex
+                     , happy
   build-depends:       base
                      , array
                      , containers
