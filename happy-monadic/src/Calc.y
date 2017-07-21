@@ -72,9 +72,7 @@ data Exp = Let String Exp Exp
 
 -- | Parser
 data ParserEnv = ParserEnv
-  { input :: String
-  , varModifier :: String -> String
-  }
+  { varModifier :: String -> String }
 
 newtype ExpParser a = ExpParser 
   { runExpParser :: ReaderT ParserEnv (StateT AlexState (Except String)) a }
@@ -91,7 +89,7 @@ parseError t = throwError $ "Parse error: " ++ (show t)
 -- | Parsing function.
 parse :: (String -> String) -> String -> Either String Exp
 parse f str = runExcept $ (`evalStateT` initState) $ runReaderT (runExpParser calc) initEnv
-  where initEnv = ParserEnv { input = str, varModifier = f}
+  where initEnv = ParserEnv { varModifier = f}
         initState = AlexState -- TODO: isn't it a standard initial state that we can use?        
           { alex_pos = AlexPn 0 0 0
           , alex_inp = str
