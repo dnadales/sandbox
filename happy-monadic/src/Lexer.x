@@ -1,19 +1,22 @@
 {
 module Lexer
-  ( alexScanTokens
+  ( runAlex
+  , alexMonadScan
+  , alexEOF
   , Token (..)
-  , AlexPosn
+  , AlexState (..)
+  , AlexPosn (..)
+  , Alex (..)
   ) where  
 }
 
-%wrapper "posn"
+%wrapper "monad"
 
 $digit = 0-9
 
 calcTokens :-
 
-  $digit+ { \_ s -> TokenInt (read s) }
-  .       { \ _  _ -> Err }
+  $digit+ { tokenInt  }
 
 {
 -- | Tokens
@@ -30,7 +33,12 @@ data Token
       | TokenOB
       | TokenCB
       | TokenEOF
-      | Err
  deriving (Eq, Show)
+
+tokenInt :: AlexInput -> Int -> Alex Token
+tokenInt (_, _, _, s) _ = return $ TokenInt (read s)
+
+alexEOF :: Alex Token
+alexEOF = return TokenEOF
 
 }

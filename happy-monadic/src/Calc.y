@@ -78,10 +78,10 @@ data ParserEnv = ParserEnv
   }
 
 newtype ExpParser a = ExpParser 
-  { runExpParser :: ReaderT ParserEnv (StateT AlexPosn (Except String) a) }
+  { runExpParser :: ReaderT ParserEnv (StateT AlexState (Except String)) a }
   deriving ( Functor, Applicative, Monad
            , MonadReader ParserEnv
-           , MonadState AlexPosn
+           , MonadState AlexState
            , MonadError String
            )
 
@@ -93,14 +93,24 @@ parseError t = throwError $ "Parse error: " ++ (show t)
 parse :: (String -> String) -> String -> Either String Exp
 parse f str = runExcept $ (`evalStateT` initState) $ runReaderT (runExpParser calc) initEnv
   where initEnv = ParserEnv { input = str, varModifier = f}
-        initState = AlexPn 0 0 0
+        initState = AlexState
+          { alex_pos = AlexPn 0 0 0
+          , alex_inp = str
+          , alex_chr = '\n' -- What to include here?
+          , alex_bytes = []
+          , alex_scd = 0
+          }
 
 -- * Lexer functions (TODO: integrate with Alex)
 mLexer :: (Token -> ExpParser a) -> ExpParser a
 mLexer cont = do
-  input <- asks input
-  let token = alexScanTokens posn input
-  cont token
+  alexSt <- get
+  case unAlex alexMonadScan alexSt of
+    Left err -> throwError err
+    Right (nextAlexSt, token) ->
+      do
+        put nextAlexSt
+        cont token
 
 -- alexScanTokens :: AlexPosn -> String -> Token
 
