@@ -113,3 +113,64 @@ mapAccumLS step t = traverse step t -- i.e. mapAccumLS = traverse
 -- | This won't even compile :/ (taken from the Wiki...)
 -- mapAccumL' :: Traversable t => (a -> b -> (a, c)) -> a -> t b -> (a, t c)
 -- mapAccumL' step z t = runState (traverse (state . flip step) t) z
+
+-- * The traversable laws
+
+-- If t is an applicative homomorphism, then:
+--
+-- > t . traverse f = traverse (t . f) -- naturality
+--
+-- where
+--
+-- > t :: f a -> g a
+--
+-- We have:
+--
+-- > traverse :: (Applicative f, Traversable t) => (a -> f b) -> t a -> f (t b)
+-- > f :: a -> f b
+-- > t . f :: a -> g b
+-- > traverse f :: t a -> f (t b)
+--
+-- And thus:
+-- > t . traverse f   :: t a -> g (t b)
+-- > traverse (t . f) :: t a -> g (t b)
+--
+
+-- Regarding the remaining law we have:
+--
+-- traverse (Compose . fmap g . f) = Compose . fmap (traverse g) . traverse f -- composition
+--
+-- > f :: a -> f b
+-- > g :: b -> g c
+-- > Compose :: f (g z) -> Compose f g z
+-- > traverse f :: t a -> f (t b)
+-- > traverse g :: t b -> g (t c)
+-- > fmap (traverse g) :: h (t b) -> h (g (t c))
+-- > fmap (traverse g) . traverse f :: t a -> f (g (t b))
+-- > Compose . (fmap (traverse g) . traverse f) :: t a -> Compose f g (t b)
+-- > fmap g . f :: a -> f (g b)
+-- > Compose . (fmap g . f) :: a -> Compose f g b
+-- > traverse (Compose . (fmap g . f)) :: t a -> Compose f g (t b)
+
+-- * Recovering `fmap` and `foldMap`
+
+-- Let's recover `fmap`:
+
+-- > fmap :: Functor f => (a -> b) -> f a -> f b
+-- > traverse :: (Applicative f, Traversable t) => (a -> f b) -> t a -> f (t b)
+-- > f :: a -> b
+-- > Identity :: b -> Identity b
+-- > Identity . f :: a -> Identity b
+-- > traverse (Identity . f) :: t a -> Identity (t b)
+--
+-- > fmap :: (a -> b) -> t a -> t b
+-- > fmap f = runIdentity . traverse (Identity . f)
+
+-- What about foldmap
+--
+-- > foldMap :: (Monoid m, Foldable t) => (a -> m) -> t a -> m
+-- > Const :: a -> Const a b
+-- > f :: a -> m
+-- > Const . f :: a -> Const m b
+-- > traverse (Const . f) :: (Applicative (Const m), Traversable t)
+--                        => (a -> Const m b) -> t a -> Const m (t b)
