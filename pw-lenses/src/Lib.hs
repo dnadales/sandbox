@@ -6,21 +6,10 @@
 -- Sources:
 --
 -- - https://en.wikibooks.org/wiki/Haskell/Lenses_and_functional_references
-module Lib
-    ( someFunc
-    , Point (..)
-    , Segment (..)
-    , mkPoint
-    , mkSegment
-    , PointL (..)
-    , posX, posY
-    , SegmentL (..)
-    , start, end
-    , mkPointL
-    , mkSegmentL
-    ) where
+module Lib where
 
 import           Control.Lens
+import           Control.Lens.Fold
 
 someFunc :: IO ()
 someFunc = putStrLn "someFunc"
@@ -107,3 +96,104 @@ mkSegmentL startXY endYX = SegmentL (mkPointL startXY) (mkPointL endYX)
 
 -- * Making sense out of lenses
 --
+
+-- ** Traversals
+pointCoordinates :: Applicative f
+                 => (Double -> f Double) -> Point -> f Point
+pointCoordinates f (Point x y) = Point <$> f x <*> f y
+
+-- We can use `pointCoordinates` to implement `rejectWithNegatives`.
+deleteIfNegative :: (Num a, Ord a) => a -> Maybe a
+deleteIfNegative x =  if x < 0 then Nothing else Just x
+
+rejectWithNegatives :: Point -> Maybe Point
+rejectWithNegatives p = pointCoordinates deleteIfNegative p
+
+-- > rejectWithNegatives (mkPoint (1, 2))
+-- > rejectWithNegatives (mkPoint (-1, 2))
+
+-- | The `MTraversal` type:
+--
+-- Function `pointCoordinates` is an example of a more generalized notion:
+-- `Traversal`, here called `MTraversal` to avoid a name clash with the one
+-- defined at `Lens`.
+--
+type MTraversal s t a b =
+  forall f . Applicative f => (a -> f b) -> s -> f t
+--
+-- compare this with the type of `traverse`:
+--
+-- > traverse :: (Applicative f, Traversable t) => (a -> f b) -> t a -> f (t b)
+--
+-- Note that:
+--
+-- - `f` is not mentioned on the left side (it is universally quantified).
+-- - `t a` in traverse is replaced by `s`, and `t b` is replaced by `t`.
+pointCoordinatesT :: MTraversal Point Point Double Double
+pointCoordinatesT f (Point x y) = Point <$> f x <*> f y
+
+-- *** Exercises
+
+extremityCoordinates :: MTraversal Segment Segment Double Double
+extremityCoordinates f (Segment fr to) =
+  Segment <$> pointCoordinatesT f fr <*> pointCoordinatesT f to
+
+-- ** Setters
+
+-- | The `Setter` type, here called `MSetter` to avoid a name clash with the
+-- lens one.
+--
+type MSetter s t a b =
+  (a -> Identity b) -> s -> Identity t
+
+-- | Modify the target of a lens.
+--
+-- The original type of `over` is:
+--
+-- > over :: ASetter s t a b -> (a -> b) -> s -> t
+mOver :: MSetter s t a b -> (a -> b) -> s -> t
+mOver l f s = runIdentity $ l (Identity . f) s
+
+-- *** Exercises
+
+-- | Multiply all the coordinates of a segment by the given constant.
+--
+-- Examples:
+--
+-- >>> s0 = Segment (Point 0 1) (Point 3 4)
+-- >>> scaleSegment 10 s0
+-- Segment {from = Point {x = 0.0, y = 10.0}, to = Point {x = 30.0, y = 40.0}}
+--
+scaleSegment :: Double -> Segment -> Segment
+scaleSegment c = mOver extremityCoordinates (*c)
+
+-- | Apply a function over all values of a functor.
+mMapped :: Functor f => MSetter (f a) (f b) a b
+mMapped g fa = Identity $ (runIdentity . g) <$> fa
+
+-- ** Folds
+
+-- | The fold type.
+type MFold s a =
+  forall f . (Contravariant f, Applicative f) => (a -> f a) -> s -> f s
+
+-- | Predicate is an example of a contravariant instance:
+--
+-- >>> let largerThanFour = Predicate (> 4)
+-- >>> getPredicate largerThanFour 6
+-- True
+-- >>> getPredicate (contramap length largerThanFour) "orange"
+-- True
+--
+newtype Predicate a = Predicate { getPredicate :: a -> Bool }
+
+instance Contravariant Predicate where
+  -- contramap :: (a -> b) -> Predicate b -> Predicate a
+  contramap f (Predicate p) = Predicate $ p . f
+
+-- | We can use lenses functions with our ad-hoc lenses!
+toListListsExample =
+  toListOf extremityCoordinates (Segment (Point 0 1) (Point 3 4))
+previewExample = preview traverse [1..10]
+
+-- ** Getters
