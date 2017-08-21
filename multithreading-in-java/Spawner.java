@@ -5,10 +5,10 @@
  * Haskell is great, and that I will avoid working for any company that uses
  * Java to the extent possible.
  */
-class Highlander implements Runnable {
+public class Spawner implements Runnable {
   private int id;
 
-  Highlander(int id) {
+  Spawner(int id) {
     this.id = id;
   }
 
@@ -20,12 +20,10 @@ class Highlander implements Runnable {
       System.out.println(msg);
     }
   }
-}
-
-public class Spawner {
+    
   public static void main(String[] args) {
     for (int i = 0; i < 3; i ++) {
-      (new Thread(new Highlander(i))).start();
+      (new Thread(new Spawner(i))).start();
     }
     System.out.println("Bye bye");
   }
