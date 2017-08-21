@@ -197,3 +197,4 @@ toListListsExample =
 previewExample = preview traverse [1..10]
 
 -- ** Getters
+-- TODO: Continue here: https://en.wikibooks.org/wiki/Haskell/Lenses_and_functional_references#Getters
