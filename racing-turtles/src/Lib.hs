@@ -16,8 +16,9 @@ someFunc :: IO ()
 someFunc = do
   hSetBuffering System.IO.stdout NoBuffering
   -- internalExample
-  procExample
+  -- procExample
   -- forkAsyncExample
+  inProcExample
   -- sysProcExceptionExample
 
 mkExample :: IO () -> IO ()
@@ -32,6 +33,11 @@ procExample = mkExample highlander
 
 highlander :: IO ()
 highlander = void (proc "java" ["-cp", "src", "SayHi"] empty)
+
+inProcExample :: IO ()
+inProcExample = mkExample ip
+  where ip = view $ inproc "java" ["-cp", "src", "SayHi"] empty
+
 
 forkAsyncExample :: IO ()
 forkAsyncExample = mkExample forkAsyncHighlander
