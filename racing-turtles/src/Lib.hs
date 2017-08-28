@@ -16,9 +16,9 @@ someFunc :: IO ()
 someFunc = do
   hSetBuffering System.IO.stdout NoBuffering
   -- internalExample
-  -- procExample
+  procExample
   -- forkAsyncExample
-  sysProcExceptionExample
+  -- sysProcExceptionExample
 
 mkExample :: IO () -> IO ()
 mkExample otherProc =  otherProc `race` sayBye >>= print
@@ -50,7 +50,7 @@ sysProcExceptionExample = mkExample aMereMortalProc
               ph <- Process.spawnProcess (unpack jPath) ["-cp", "src", "SayHi"]
               waitForProcess `onException` Process.terminateProcess ph
             where waitForProcess =
-                    forever (sleep 2.0) >> putStrLn "Waiting for process"
+                    forever (sleep 60.0) >> putStrLn "Waiting for process"
 
 addExeSuffix :: Text -> Text
 addExeSuffix path = if os == "mingw32" then path <> ".exe" else path
@@ -59,5 +59,5 @@ javaCmd :: Text
 javaCmd = addExeSuffix "java"
 
 sayBye :: IO ()
-sayBye = sleep 3.0 >> putStrLn "Bye!"
+sayBye = sleep 5.0 >> putStrLn "Bye!"
 
