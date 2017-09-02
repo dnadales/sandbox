@@ -25,12 +25,26 @@ mkPoint = uncurry Point
 mkSegment :: (Double, Double) -> (Double, Double) -> Segment
 mkSegment fromXY toXY = Segment (mkPoint fromXY) (mkPoint toXY)
 
+-- | Increase the x coordinate of `from`:
+shiftFromX :: Segment -> Segment
+shiftFromX seg = seg { Lib.from = newFrom }
+  where newFrom = (Lib.from seg) { x = newX }
+          where newX = x (Lib.from seg) + 1
+
+-- | Alternatively:
+shiftFromX' :: Segment -> Segment
+shiftFromX' (Segment (Point x y) to) = Segment (Point (x + 1) y) to
+
+testSeg :: Segment
+testSeg = mkSegment (0, 1) (2, 3)
+
+doubleEndY :: Segment -> Segment
+doubleEndY (Segment from (Point x y)) = Segment from (Point x (y * 2))
+
 -- | Getting fields is easy. For instance, if we want the `y` coordinate of the
 -- end-point of the segment we can do the following:
 --
--- > let testSeg = mkSegment (0, 1) (2, 3)
 -- > y . to $ testSeg
--- >
 --
 -- But what if we wanted to update the point above?
 --
@@ -94,6 +108,16 @@ mkSegmentL startXY endYX = SegmentL (mkPointL startXY) (mkPointL endYX)
 --
 -- > over (end . posY) (*2) testSeg
 
+-- * The key question:
+--
+-- > How come composing lenses with (.) just works?
+
+shiftFromXL :: SegmentL -> SegmentL
+shiftFromXL seg = over (start . posX) (+1) seg
+
+testSegL :: SegmentL
+testSegL = mkSegmentL (0, 1) (2, 4)
+
 -- * Making sense out of lenses
 --
 
@@ -104,7 +128,7 @@ pointCoordinates f (Point x y) = Point <$> f x <*> f y
 
 -- We can use `pointCoordinates` to implement `rejectWithNegatives`.
 deleteIfNegative :: (Num a, Ord a) => a -> Maybe a
-deleteIfNegative x =  if x < 0 then Nothing else Just x
+deleteIfNegative x = if x < 0 then Nothing else Just x
 
 rejectWithNegatives :: Point -> Maybe Point
 rejectWithNegatives p = pointCoordinates deleteIfNegative p
@@ -197,4 +221,7 @@ toListListsExample =
 previewExample = preview traverse [1..10]
 
 -- ** Getters
--- TODO: Continue here: https://en.wikibooks.org/wiki/Haskell/Lenses_and_functional_references#Getters
+
+-- * Lenses at last
+
+-- TODO: Continue here: https://en.wikibooks.org/wiki/Haskell/Lenses_and_functional_references#Lenses_at_last
