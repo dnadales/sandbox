@@ -74,6 +74,8 @@ data Exp = Let String Exp Exp
 data ParserEnv = ParserEnv
   { varModifier :: String -> String }
 
+
+-- TODO: consider simplifying this by using only the `Alex` monad!
 newtype ExpParser a = ExpParser 
   { runExpParser :: ReaderT ParserEnv (StateT AlexState (Except String)) a }
   deriving ( Functor, Applicative, Monad
