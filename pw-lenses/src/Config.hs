@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 -- | Example of using lenses for manipulating a configuration file.
 
 module Config where
@@ -15,7 +16,7 @@ data Author = Author
   , age  :: Int
   } deriving (Show)
 
-data Foo = Foo { bar :: String } deriving (Show)
+newtype Foo = Foo { bar :: String } deriving Show
 
 -- * Lenses for `Config` and `Author`.
 
@@ -45,8 +46,8 @@ barL fstr fo = (\str -> fo { bar = str} ) <$> fstr (bar fo)
 config0 :: Config
 config0 = Config
   { authors = [nicole, another], verbose = False , foo = baz}
-  where nicole = Author "Nicole" 35
-        another = Author "Gitte" 27
+  where nicole = Author "One" 35
+        another = Author "Two" 27
         baz = Foo "baz"
 
 -- * Playing with lenses
@@ -98,7 +99,7 @@ authorNames0 :: [String]
 -- > Lens s t a b = forall f . Functor f => (a -> f b) -> s -> f t
 --
 -- So a traverse it is not a `Lens'` but a `Lens (t a) (t b) a b`!
-authorNames0 = toListOf (authorsL . traverse . name) config0
+authorNames0 = toListOf (authorsL . traverse . nameL) config0
 
 -- TODO: understand the `toList` and `Traversal` magic:
 --
@@ -106,3 +107,25 @@ authorNames0 = toListOf (authorsL . traverse . name) config0
 
 authorAges0 :: [Int]
 authorAges0 = toListOf (authorsL . traverse . ageL) config0
+
+-- * Parametrizing lenses.
+
+-- | Append a string to the field defined by the given Traversal. Note that we
+-- could have used a Lens instead, but with Traversal we can use traversal:
+--
+-- > appendPorAtras (authorsL . traverse . nameL) config0
+--
+-- Besides of course:
+--
+-- > appendPorAtras (fooL . barL) config0
+--
+appendPorAtras :: forall a . Traversal' a String -> a -> a
+appendPorAtras accessor = over accessor (++" por atras")
+
+-- Why does `traverse` works as a Traversal?
+--
+-- > authorsL :: Functor f => ([Author] -> f [Author]) -> Config -> f Config
+-- > authorsL . traverse :: Applicative f => (Author -> f Author) -> Config -> f Config
+-- > authorsL . traverse . nameL :: Applicative f => (String -> f String) -> Config -> f Config
+--
+
