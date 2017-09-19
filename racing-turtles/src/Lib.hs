@@ -16,12 +16,12 @@ someFunc :: IO ()
 someFunc = do
   hSetBuffering System.IO.stdout NoBuffering
   --                          -- Windows            | Linux
-  -- internalExample          -- Terminates         |
-  -- procExample              -- Does not terminate |
-  -- forkAsyncExample         -- Does not terminate |
-  -- inProcExample            -- Terminates         |
-  -- sysProcExceptionExample  -- Terminates         |
-  forkAsyncExampleNoTurtle    -- Does not terminate |
+  -- internalExample          -- Terminates         | Terminates
+  -- procExample              -- Does not terminate | Terminates
+  -- forkAsyncExample         -- Does not terminate | Terminates
+  -- inProcExample            -- Terminates         | Terminates
+  -- sysProcExceptionExample  -- Terminates         | Terminates
+  forkAsyncExampleNoTurtle    -- Does not terminate | Terminates
 
 mkExample :: IO () -> IO ()
 mkExample otherProc =  otherProc `race` sayBye >>= print
