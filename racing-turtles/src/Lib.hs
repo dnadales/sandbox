@@ -15,11 +15,13 @@ import           Turtle
 someFunc :: IO ()
 someFunc = do
   hSetBuffering System.IO.stdout NoBuffering
-  -- internalExample
-  -- procExample
-  -- forkAsyncExample
-  inProcExample
-  -- sysProcExceptionExample
+  --                          -- Windows            | Linux
+  -- internalExample          -- Terminates         |
+  -- procExample              -- Does not terminate |
+  -- forkAsyncExample         -- Does not terminate |
+  -- inProcExample            -- Terminates         |
+  -- sysProcExceptionExample  -- Terminates         |
+  forkAsyncExampleNoTurtle    -- Does not terminate |
 
 mkExample :: IO () -> IO ()
 mkExample otherProc =  otherProc `race` sayBye >>= print
@@ -44,6 +46,10 @@ forkAsyncExample = mkExample forkAsyncHighlander
   where forkAsyncHighlander = sh $ using $ do
           a <- fork highlander
           Turtle.wait a
+
+forkAsyncExampleNoTurtle :: IO ()
+forkAsyncExampleNoTurtle = mkExample forkAsyncHighlander
+  where forkAsyncHighlander = withAsync highlander Control.Concurrent.Async.wait
 
 sysProcExceptionExample :: IO ()
 sysProcExceptionExample = mkExample aMereMortalProc
