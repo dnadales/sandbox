@@ -17,11 +17,13 @@ library
   hs-source-dirs:      src
   exposed-modules:     Lib
                      , Config
+                     , Coercions
 -- TODO: remove this line and the line below:
                      , PWPhantomsHolidays 
   build-depends:       base >= 4.7 && < 5
                      , lens
                      , mtl
+                     , containers
   default-language:    Haskell2010
 
 executable pw-lenses-exe

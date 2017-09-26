@@ -1,6 +1,5 @@
 {-# LANGUAGE RankNTypes      #-}
 {-# LANGUAGE TemplateHaskell #-}
-
 -- | Playing with lenses.
 --
 -- Sources:

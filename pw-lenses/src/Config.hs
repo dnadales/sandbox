@@ -57,6 +57,8 @@ foo0 = view (fooL . barL) config0
 
 -- How come we're able to compose lenses?
 --
+--
+-- See this answer: https://stackoverflow.com/a/46010477/2289983
 -- We have:
 --
 -- > (.) :: Lens' Config Foo -> Lens' Foo String -> Lens' Config String
