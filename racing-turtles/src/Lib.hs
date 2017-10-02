@@ -18,6 +18,9 @@ someFunc = do
   --                          -- Windows            | Linux
   -- internalExample          -- Terminates         | Terminates
   -- procExample              -- Does not terminate | Terminates
+  -- sysProcExample           -- Does not terminate |
+  -- procProcExample          -- Does not terminate |
+  -- experiment2              -- Does not terminate |
   -- forkAsyncExample         -- Does not terminate | Terminates
   -- inProcExample            -- Terminates         | Terminates
   -- sysProcExceptionExample  -- Terminates         | Terminates
@@ -35,6 +38,26 @@ procExample = mkExample highlander
 
 highlander :: IO ()
 highlander = void (proc "java" ["-cp", "src", "SayHi"] empty)
+
+sysProcExample :: IO ()
+sysProcExample = mkExample sysProcHighlander
+  where sysProcHighlander = Process.system "java -cp src SayHi" >>= print
+
+experiment2 :: IO ()
+experiment2 = mkExample sysProcTurtleHighlander
+  where sysProcTurtleHighlander =
+          void (Turtle.system theProc empty)
+        theProc = Process.proc "java" ["-cp", "src", "SayHi"]
+
+procProcExample :: IO ()
+procProcExample = mkExample procProcHighlander
+  where procProcHighlander = do
+          let crProc = Process.proc "java" ["-cp", "src", "SayHi"]
+          (_, _, _, ph) <- Process.createProcess crProc
+          ec <- Process.waitForProcess ph
+          print ec
+
+
 
 inProcExample :: IO ()
 inProcExample = mkExample ip
