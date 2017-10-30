@@ -17,9 +17,9 @@ library
   hs-source-dirs:      src
   exposed-modules:     Lib
   build-depends:       base >= 4.7 && < 5
-                     , turtle >= 1.4.1
+                     , turtle
                      , async
-                     , process
+                     , process >= 1.6.1.0
                      , text
   default-language:    Haskell2010
 

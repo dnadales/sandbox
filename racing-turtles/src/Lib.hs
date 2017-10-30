@@ -15,16 +15,16 @@ import           Turtle
 someFunc :: IO ()
 someFunc = do
   hSetBuffering System.IO.stdout NoBuffering
-  --                          -- Windows            | Linux
-  -- internalExample          -- Terminates         | Terminates
-  -- procExample              -- Does not terminate | Terminates
+  --                          -- Windows            | Linux      | Windows (process >= 1.6)
+  -- internalExample          -- Terminates         | Terminates |
+  procExample              -- Does not terminate | Terminates | Does not terminate
   -- sysProcExample           -- Does not terminate |
   -- procProcExample          -- Does not terminate |
   -- experiment2              -- Does not terminate |
   -- forkAsyncExample         -- Does not terminate | Terminates
   -- inProcExample            -- Terminates         | Terminates
   -- sysProcExceptionExample  -- Terminates         | Terminates
-  forkAsyncExampleNoTurtle    -- Does not terminate | Terminates
+  --forkAsyncExampleNoTurtle    -- Does not terminate | Terminates
 
 mkExample :: IO () -> IO ()
 mkExample otherProc =  otherProc `race` sayBye >>= print
