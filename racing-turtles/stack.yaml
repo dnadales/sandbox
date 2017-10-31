@@ -37,14 +37,11 @@ resolver: lts-9.7
 # will not be run. This is useful for tweaking upstream packages.
 packages:
 - '.'
-- location:
-    git: https://github.com/haskell/process.git
-    commit: 2fb7e739771f4a899a12b45f8b392e4874616b89
-  extra-dep: true
-   
+
 extra-deps:
-- turtle-1.4.1 # See
+- turtle-1.4.4 # See
 # https://github.com/Gabriel439/Haskell-Turtle-Library/issues/103
+- process-1.6.2.0
 - Cabal-2.0.0.2
     
 
