@@ -1,0 +1,38 @@
+* The problem
+
+How to achieve dependency injection in +a pure functional language+ Haskell?
+
+Suppose you have a program for fetching weather data, storing it in a database,
+and reporting the weather.
+
+#+BEGIN_SRC haskell
+  main :: IO ()
+  main = do
+      w <- fetchWeather
+      store w
+      report w
+#+END_SRC
+
+We could implement the function ~fetchWeather~ by querying an online service,
+but we could also get the weather data from some piece of hardware connected to
+the computer that is running our program. Similarly, we could implement ~store~
+so that it stores the weather data in a database, or in some cloud storage
+service, or even in a file. And the same holds for the ~report~ function. We
+could report the weather to the console, or speak the current temperature, or
+send some message over the wire.
+
+In OO languages the problem above could be using dependency injection, or more
+simply, by passing along three objects that implement some interfaces like
+~IWeatherService~, ~IStorage~, ~IReporter~. What patterns are there in
+functional programming?
+
+*** Passing functions
+
+***** Using the reader monad
+
+*** Using monad transformers
+
+*** Using free-monads
+
+*** Using pipes
+    [[https://stackoverflow.com/a/14328834/2289983][Using a streaming library]] seems to be also a nice way to do dependency injection.
