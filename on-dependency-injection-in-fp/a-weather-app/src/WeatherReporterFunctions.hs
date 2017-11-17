@@ -8,13 +8,13 @@ type WeatherData = String
 -- logging might be more useful.
 
 class WeatherService ws where
-    fetchWeather :: ws -> IO WeatherData
+    fetch :: ws -> IO WeatherData
 
 -- And we provide a mock implementation.
 data DummyService = DummyService
 
 instance WeatherService DummyService where
-    fetchWeather _ = return "winter is coming, and I wish I was in the South Hemisphere!"
+    fetch _ = return "winter is coming, and I wish I was in the South Hemisphere!"
 
 class Storage s where
     store :: s  -> WeatherData -> IO ()
@@ -38,7 +38,7 @@ instance Reporter DummyReporter where
 reportWeather :: (WeatherService ws, Storage s, Reporter r)
               => ws -> s -> r -> IO ()
 reportWeather ws s r = do
-      w <- fetchWeather ws
+      w <- fetch ws
       store s w
       report r w
 

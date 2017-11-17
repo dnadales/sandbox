@@ -33,6 +33,7 @@ functional programming?
 *** Using monad transformers
 
 *** Using free-monads
+    Let's use the ideas in [[https://typelevel.org/cats/datatypes/freemonad.html][this tutorial]].
 
 *** Using pipes
     [[https://stackoverflow.com/a/14328834/2289983][Using a streaming library]] seems to be also a nice way to do dependency injection.
