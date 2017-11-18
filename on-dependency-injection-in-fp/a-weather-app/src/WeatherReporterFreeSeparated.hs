@@ -13,22 +13,38 @@ type WeatherData = String
 
 data WeatherServiceF a = Fetch (WeatherData -> a) deriving (Functor)
 
+fetch :: Free WeatherServiceF WeatherData
+fetch = undefined -- We need to make this work for sum types as well!
+
 data StorageF a = Store WeatherData a deriving (Functor)
 
 data ReporterF a = Report WeatherData a deriving (Functor)
 
 type WeatherF  = Sum WeatherServiceF (Sum StorageF ReporterF)
 
+reportWeather :: Free WeatherF ()
+reportWeather = do
+    w <- fetch
+    store w
+    report w
 
-dummyServiceInterp :: WeatherF a -> IO a
+dummyServiceInterp :: WeatherServiceF a -> IO a
 dummyServiceInterp = undefined
 
 dummyStorageInterp :: StorageF a -> IO a
 dummyStorageInterp = undefined
 
-dummyReporterInterp :: StorageF a -> IO a
+dummyReporterInterp :: ReporterF a -> IO a
 dummyReporterInterp = undefined
 
-dummyWeatherF :: WeatherF a -> IO a
--- I'm missing this `or` operator in Haskell
-dummyWeatherF = dummyServiceInterp `or` dummyStorageInterp `or` dummyReporterInterp
+dummyWeatherInterp :: WeatherF a -> IO a
+-- I'm missing a `coproduct` operator in Haskell
+dummyWeatherInterp (InL service)        = dummyServiceInterp service
+dummyWeatherInterp (InR (InL storage))  = dummyStorageInterp storage
+dummyWeatherInterp (InR (InR reporter)) = dummyReporterInterp reporter
+
+-- Then we can write out program in the same way as the `WeatherReporterFree`
+-- module.
+
+dummyWeatherReport :: IO ()
+dummyWeatherReport = foldFree dummyWeatherInterp reportWeather
