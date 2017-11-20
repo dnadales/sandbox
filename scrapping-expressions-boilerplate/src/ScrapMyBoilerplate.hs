@@ -1,7 +1,10 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 module ScrapMyBoilerplate where
 
+import           Control.Lens.Plated
 import           Data.Data
+import           Data.Data.Lens        (uniplate)
+import           Data.Functor.Identity
 import           Data.Generics.Aliases
 import           Data.Generics.Schemes
 
@@ -58,4 +61,31 @@ raiseSalaries2 = everywhere' (raiseSalary  `extQ` mkT raiseEmployeeSalary)
 -- > λ> gmapT raiseSalary (emp0, emp1)
 -- > (Employee "Laura" (Salary 10.0),Employee "Pedro" (Salary 8.0))
 --
+
+-- Using the solution suggested by this answer on stack overflow:
+--
+-- > https://stackoverflow.com/a/47339350/2289983
+--
+--
+-- We should be able to use a traverse that can be automatically derive, the author of the answer is defining this for illustration purposes
+traverseCA :: Applicative f => (CompanyAsset -> f CompanyAsset) -> CompanyAsset -> f CompanyAsset
+traverseCA f (Boss n p s as) = Boss n p s <$> traverse f as
+traverseCA _ x               = pure x
+
+raiseSalaries3 :: CompanyAsset -> CompanyAsset
+raiseSalaries3 (Boss n Good s as) = Boss n Good (raiseSalary s) (raiseSalaries3 <$> as)
+raiseSalaries3 b@(Boss _ Bad _ _) = b -- No raise for anything that is under this boss.
+raiseSalaries3 (Employee n s) = Employee n (raiseSalary s)
+raiseSalaries3 x = runIdentity $ traverseCA (pure . raiseSalaries3) x
+
+-- And this is what you'd get if you would use `Control.Lens.Plated.plate` from `lens`.
+instance Plated CompanyAsset where
+  plate = uniplate
+
+
+raiseSalaries4 :: CompanyAsset -> CompanyAsset
+raiseSalaries4 (Boss n Good s as) = Boss n Good (raiseSalary s) (raiseSalaries3 <$> as)
+raiseSalaries4 b@(Boss _ Bad _ _) = b -- No raise for anything that is under this boss.
+raiseSalaries4 (Employee n s) = Employee n (raiseSalary s)
+raiseSalaries4 x = runIdentity $ plate (pure . raiseSalaries3) x
 
