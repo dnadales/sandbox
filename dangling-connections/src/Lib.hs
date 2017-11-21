@@ -15,6 +15,7 @@ someFunc = withSocketsDo $ do
     h <- connectTo "localhost" (PortNumber 9090)
     ch <- newChan
     cmdsHandler h ch
+    putStrLn "Starting the handler reader"
     readerTid <- forkIO $ handleReader h ch
     cmdsHandler h ch
     putStrLn "Killing the handler reader"
