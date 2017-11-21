@@ -12,9 +12,9 @@ import           System.IO
 
 someFunc :: IO ()
 someFunc = withSocketsDo $ do
-    sock <- listenOn (PortNumber 9090)
-    (h, _, _) <- accept sock
+    h <- connectTo "localhost" (PortNumber 9090)
     ch <- newChan
+    cmdsHandler h ch
     readerTid <- forkIO $ handleReader h ch
     cmdsHandler h ch
     putStrLn "Killing the handler reader"
@@ -27,15 +27,15 @@ cmdsHandler h ch = do
     act <- readChan ch
     case act of
       Quit      -> putStrLn "Bye bye"
-      Line line ->  putStrLn $ "echo \"" ++ line ++ "\""
+      Line line -> do
+            hPutStrLn h (reverse line)
+            cmdsHandler h ch
 
 handleReader :: Handle -> Chan Action -> IO ()
 handleReader h ch = forever $ do
     line <- strip <$> hGetLine h
     case line of
-        "quit" -> do
-            writeChan ch Quit
-        _ -> do
-            writeChan ch (Line line)
+        "quit" -> writeChan ch Quit
+        _      -> writeChan ch (Line line)
 
 data Action = Quit | Line String
