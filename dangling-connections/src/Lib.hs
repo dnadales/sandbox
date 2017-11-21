@@ -4,6 +4,7 @@ module Lib
     ) where
 
 
+import           Data.String.Utils
 import           Network
 import           System.IO
 
@@ -15,7 +16,7 @@ someFunc = withSocketsDo $ do
 
 handleCmds :: Handle -> IO ()
 handleCmds h = do
-    line <- hGetLine h
+    line <- strip <$> hGetLine h
     case line of
         "quit" -> do
             putStrLn "Closing the handle"
