@@ -8,4 +8,4 @@ import           Lib
 -- > nc localhost 9090
 --
 main :: IO ()
-main = someFunc
+main = someFuncWithChans

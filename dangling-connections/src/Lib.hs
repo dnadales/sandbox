@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Lib
     ( someFunc
+    , someFuncWithChans
     ) where
 
 
@@ -13,6 +14,24 @@ import           System.IO
 someFunc :: IO ()
 someFunc = withSocketsDo $ do
     h <- connectTo "localhost" (PortNumber 9090)
+    hSetBuffering h NoBuffering
+    cmdsHandler h
+    putStrLn "Closing the handle"
+    hClose h
+    where
+      cmdsHandler h = do
+        line <- strip <$> hGetLine h
+        case line of
+            "quit" -> putStrLn "Bye bye"
+            _      -> do
+              hPutStrLn h (reverse line)
+              cmdsHandler h
+
+
+someFuncWithChans :: IO ()
+someFuncWithChans = withSocketsDo $ do
+    h <- connectTo "localhost" (PortNumber 9090)
+    hSetBuffering h NoBuffering
     ch <- newChan
     putStrLn "Starting the handler reader"
     readerTid <- forkIO $ handleReader h ch

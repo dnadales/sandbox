@@ -37,6 +37,10 @@ public class Client {
             System.out.println("Sending quit");
             sockOut.println("quit");
             sockOut.flush();
+            // This will cause someFuncWithChans to block when killing the
+            // reader thread.
+            s = sockIn.readLine();
+            System.out.println("Got " + s );
         }
     }
 }
