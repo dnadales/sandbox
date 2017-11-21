@@ -10,8 +10,7 @@ import           System.IO
 
 someFunc :: IO ()
 someFunc = withSocketsDo $ do
-    sock <- listenOn (PortNumber 9090)
-    (h, _, _) <- accept sock
+    h <- connectTo "localhost" (PortNumber 9090)
     handleCmds h
 
 handleCmds :: Handle -> IO ()
@@ -24,4 +23,5 @@ handleCmds h = do
             putStrLn "Bye bye"
         _ -> do
             putStrLn $ "echo \"" ++ line ++ "\""
+            hPutStrLn h (reverse line)
             handleCmds h
