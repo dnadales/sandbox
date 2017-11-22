@@ -1,5 +1,8 @@
+{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module ResetIds where
+
+import           GHC.Generics
 
 type Name = String
 newtype Id = Id { id :: Int } deriving (Eq, Show, Num)
@@ -8,26 +11,26 @@ data VarId = VarId
     { vName :: Name
     , vId   :: Id
     , vSort :: SortId
-    } deriving (Eq, Show)
+    } deriving (Eq, Show, Generic)
 
 data FuncId = FuncId
     { fName    :: Name
     , fId      :: Id
     , argsSort :: [SortId]
     , retSort  :: SortId
-    } deriving (Eq, Show)
+    } deriving (Eq, Show, Generic)
 
 data SortId = SortId
     { sName :: Name
     , sId   :: Id
-    } deriving (Eq, Show)
+    } deriving (Eq, Show, Generic)
 
 
 data Exp = Var VarId
          | FuncCall FuncId [Exp]
          | Plus Exp Exp
          | Times Exp Exp
-         deriving (Eq, Show)
+         deriving (Eq, Show, Generic)
 
 -- * The problem:
 --
