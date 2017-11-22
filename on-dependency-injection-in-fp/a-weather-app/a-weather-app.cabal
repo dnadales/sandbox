@@ -17,6 +17,7 @@ library
   hs-source-dirs:      src
   exposed-modules:     WeatherReporterFunctions
                      , WeatherReporterFree
+                     , WeatherReporterFreeSeparated
   build-depends:       base >= 4.7 && < 5
                      , free
   default-language:    Haskell2010
