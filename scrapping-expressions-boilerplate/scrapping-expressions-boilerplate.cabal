@@ -17,6 +17,7 @@ library
   hs-source-dirs:      src
   exposed-modules:     Lib
                      , ScrapMyBoilerplate
+                     , ResetIds
   build-depends:       base >= 4.7 && < 5
                      , containers
                      , syb
