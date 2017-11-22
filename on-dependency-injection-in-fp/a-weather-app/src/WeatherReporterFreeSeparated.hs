@@ -54,7 +54,7 @@ instance (Functor f, Functor g) => f :-<: (Sum f g) where
 
 -- | If a functor 'f' is contained in a functor 'g', then f is contained in the
 -- sum of a third functor, say 'h', with 'g'.
-instance (Functor f, Functor g, Functor h, f :-<: g) => f :-<: (Sum h g) where
+instance {-# OVERLAPS #-} (Functor f, Functor g, Functor h, f :-<: g) => f :-<: (Sum h g) where
     inj = InR . inj
 
 -- | Then we can define:
@@ -67,35 +67,32 @@ store d = liftF $ inj $ Store d ()
 report :: (ReporterF :-<: g) => WeatherData -> Free g ()
 report d = liftF $ inj $ Report d ()
 
--- TODO: how can we use prisms?
-
-reportWeather :: --  Free WeatherF ()
-    Free (Sum WeatherServiceF StorageF) () --Free WeatherF ()
+-- Then we can write out program in the same way as the `WeatherReporterFree`
+-- module.
+reportWeather :: Free WeatherF ()
 reportWeather = do
-    _ <- fetch
-    return ()
-
-    -- w <- fetch
-    -- store w
-    -- report w
+    w <- fetch
+    store w
+    report w
 
 dummyServiceInterp :: WeatherServiceF a -> IO a
-dummyServiceInterp = undefined
+dummyServiceInterp (Fetch f) = return $ f "it seems sunnier at the MTL side."
 
 dummyStorageInterp :: StorageF a -> IO a
-dummyStorageInterp = undefined
+dummyStorageInterp (Store w a) = do
+    putStrLn $ "Guess what, this will go to the garbage (collector): " ++ w
+    return a
 
 dummyReporterInterp :: ReporterF a -> IO a
-dummyReporterInterp = undefined
+dummyReporterInterp (Report w a) = do
+    putStrLn $ "And the orthogonal free-monad weather report says " ++ w
+    return a
 
 dummyWeatherInterp :: WeatherF a -> IO a
 -- I'm missing a `coproduct` operator in Haskell
 dummyWeatherInterp (InL service)        = dummyServiceInterp service
 dummyWeatherInterp (InR (InL storage))  = dummyStorageInterp storage
 dummyWeatherInterp (InR (InR reporter)) = dummyReporterInterp reporter
-
--- Then we can write out program in the same way as the `WeatherReporterFree`
--- module.
 
 dummyWeatherReport :: IO ()
 dummyWeatherReport = foldFree dummyWeatherInterp reportWeather
