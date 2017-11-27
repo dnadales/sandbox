@@ -2,6 +2,7 @@
 module Lib
     ( someFunc
     , someFuncWithChans
+    , readWithinNSecs
     ) where
 
 
@@ -10,6 +11,20 @@ import           Control.Monad
 import           Data.String.Utils
 import           Network
 import           System.IO
+
+readWithinNSecs :: IO ()
+readWithinNSecs = withSocketsDo $ do
+  h <- connectTo "localhost" (PortNumber 9090)
+  hSetBuffering h NoBuffering
+  readerTid <- forkIO $ reader h
+  threadDelay $ 2 * 10^6
+  putStrLn "Killing the reader"
+  killThread readerTid
+  putStrLn "Reader thread killed"
+  where
+    reader h = do
+      line <- strip <$> hGetLine h
+      putStrLn $ "Got " ++ line
 
 someFunc :: IO ()
 someFunc = withSocketsDo $ do
@@ -26,7 +41,6 @@ someFunc = withSocketsDo $ do
             _      -> do
               hPutStrLn h (reverse line)
               cmdsHandler h
-
 
 someFuncWithChans :: IO ()
 someFuncWithChans = withSocketsDo $ do
