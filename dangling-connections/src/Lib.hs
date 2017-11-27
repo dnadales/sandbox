@@ -24,7 +24,8 @@ readWithinNSecs :: IO ()
 readWithinNSecs = withSocketsDo $ do
   h <- connectTo "localhost" (PortNumber 9090)
   hSetBuffering h NoBuffering
-  readerTid <- forkIO $ reader h
+--  readerTid <- forkIO $ reader h
+  readerTid <- forkIO $ readerAsync h
   threadDelay (2 * 10^6)
   putStrLn "Killing the reader"
   killThread readerTid
@@ -51,6 +52,11 @@ readWithinNSecs = withSocketsDo $ do
   where
     reader h = do
       line <- strip <$> hGetLine h
+      putStrLn $ "Got " ++ line
+
+    readerAsync h = do
+      a <- async $ strip <$> hGetLine h
+      line <- wait a
       putStrLn $ "Got " ++ line
 
 someFunc :: IO ()
