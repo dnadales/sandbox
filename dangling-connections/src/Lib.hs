@@ -3,6 +3,7 @@ module Lib
     ( someFunc
     , someFuncWithChans
     , readWithinNSecs
+    , readWithinNSecsBinary
     ) where
 
 
@@ -13,19 +14,45 @@ import           Data.String.Utils
 
 import           Network
 
--- import           Network.Socket            hiding (recv, recvFrom, send, sendTo)
--- import           Network.Socket.ByteString
+import qualified Data.ByteString.Char8     as C
+import           Network.Socket            hiding (recv, recvFrom, send, sendTo)
+import           Network.Socket.ByteString
 
 import           Control.Concurrent.Async
 
 import           System.IO
 
+import           Control.Monad.Extra
+
+readWithinNSecsBinary :: IO ()
+readWithinNSecsBinary = withSocketsDo $ do
+  addrinfos <- getAddrInfo Nothing (Just "") (Just "9090")
+  let serveraddr = head addrinfos
+  sock <- socket (addrFamily serveraddr) Stream defaultProtocol
+  connect sock (addrAddress serveraddr)
+  readerTid <- forkIO $ sockReader sock
+  threadDelay (3 * 10^6)
+  putStrLn "Killing the binary reader"
+  putStrLn "Closing the socket"
+  close sock
+  putStrLn "Socket closed!"
+  killThread readerTid
+  putStrLn "Binary reader thread killed"
+  where
+    sockReader sock = do
+      putStrLn "Receiving ..."
+      msg <- recv sock 1024
+      putStr "Received "
+      C.putStrLn msg
+
+
 readWithinNSecs :: IO ()
 readWithinNSecs = withSocketsDo $ do
   h <- connectTo "localhost" (PortNumber 9090)
   hSetBuffering h NoBuffering
---  readerTid <- forkIO $ reader h
-  readerTid <- forkIO $ readerAsync h
+  readerTid <- forkIO $ reader h
+--  readerTid <- forkIO $ readerAsync h
+--  readerTid <- forkIO $ politeReader h
   threadDelay (2 * 10^6)
   putStrLn "Killing the reader"
   killThread readerTid
@@ -57,6 +84,12 @@ readWithinNSecs = withSocketsDo $ do
     readerAsync h = do
       a <- async $ strip <$> hGetLine h
       line <- wait a
+      putStrLn $ "Got " ++ line
+
+    politeReader h = forever $ do
+      info <- hShow h
+      putStrLn info
+      line <- ifM (hWaitForInput h (10^6)) (hGetLine h) (return "Nothing!")
       putStrLn $ "Got " ++ line
 
 someFunc :: IO ()
