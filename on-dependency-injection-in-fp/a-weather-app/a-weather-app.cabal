@@ -16,6 +16,7 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     WeatherReporterFunctions
+                     , WeatherReporterFunctionsAndMonads
                      , WeatherReporterFree
                      , WeatherReporterFreeSeparated
                      , WeatherReporterMTL
