@@ -1,8 +1,10 @@
+{-# LANGUAGE NamedFieldPuns #-}
 module Lib
     ( someFunc
     ) where
 
-import Network.Socket hiding (recv)
+import Network.Socket hiding (recv, close)
+import qualified Network.Socket as Socket
 import Network.Socket.ByteString
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -35,48 +37,50 @@ connectTo h sn = withSocketsDo $ do
     return $ Connection sock lTQ rTid
     where
       reader sock lTQ acc = do
-          msg <- recv sock 1024
+          msg <- recv sock 8 -- 1024
           unless (B.null msg) $
               case decodeUtf8' msg of
                   Left decErr -> return () -- TODO: we might need to put the error somewhere
                   Right text -> do
+                      -- putStrLn $ "Working on " ++ show text
                       rest <- putLines lTQ text acc
-                      reader sock lTQ (text:acc)
+                      reader sock lTQ rest
 
       putLines lTQ text acc = do
+          -- putStrLn $ "text = " ++ show text
+          -- putStrLn $ "acc = " ++ show acc
           if isNothing $ T.find (=='\n') text
               then return (text:acc)
               else do
               let (suffix, remainder) = T.break (== '\n') text
                   line = T.concat (reverse (suffix:acc))
               atomically $ writeTQueue lTQ line
-              return [remainder]
+              putLines lTQ (T.tail remainder) []
               
 
-getLine :: Connection -> IO Text
-getLine = undefined
+readFrom :: Connection -> IO Text
+readFrom Connection {linesTQ} =
+    atomically $ readTQueue linesTQ
 
-putLine :: Connection -> Text -> IO ()
-putLine = undefined
+putTo :: Connection -> Text -> IO ()
+putTo = undefined
 
 close :: Connection -> IO ()
-close = undefined
+close Connection{connSock, socketReaderTid} = do
+    Socket.close connSock
+    killThread socketReaderTid
+    
 
 someFunc :: IO ()
 someFunc = withSocketsDo $ do
-  addrinfos <- getAddrInfo Nothing (Just "localhost") (Just "9090")
-  let serveraddr = head addrinfos
-  sock <- socket (addrFamily serveraddr) Stream defaultProtocol
-  connect sock (addrAddress serveraddr)
-  sockReader sock
+    conn <- connectTo "localhost" "9090"
+    line <- readFrom conn
+    print line
+    line <- readFrom conn
+    print line
+    line <- readFrom conn
+    print line
+    line <- readFrom conn
+    print line    
 
-  where
-    sockReader sock = do
-        msg <- recv sock 8 -- I don't like the fact that the size is quite arbitrary.
-
-        -- If the @msg@ is a null string, it means the connection on the Sender
-        -- side has been closed.
-        unless (B.null msg) $
-            case decodeUtf8' msg of
-                Left err -> print err
-                Right text -> print text >> sockReader sock
+    
