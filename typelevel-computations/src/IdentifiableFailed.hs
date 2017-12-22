@@ -36,8 +36,18 @@ class Identifiable e where
 
     -- And here is where everything fails: @Rep e@ has kind @* -> *@, whereas
     -- @HasId@ expects a type (with kind :: I'd guess).
-    default getId :: (Generic e, MakeIdentifiable (HasId (Rep e)) (Rep e)) => e -> Id
-    getId = (mkGetId (Proxy :: Proxy (HasId (Rep r f)))) . from
+    -- default getId :: (Generic e, MakeIdentifiable (HasId (Rep e)) (Rep e)) => e -> Id
+    -- getId = (mkGetId (Proxy :: Proxy (HasId (Rep r f)))) . from
+
+-- This won't work either:
+--
+getId' :: forall e f . (Generic e, MakeIdentifiable (HasId (Rep e f)) (Rep e)) => e -> Id
+getId' _ x = mkGetId (Proxy :: Proxy (HasId (Rep e f))) (from x)
+--
+-- >    • Could not deduce (MakeIdentifiable (HasId (Rep e f0)) (Rep e))
+-- >      from the context: (Generic e,
+-- >                         MakeIdentifiable (HasId (Rep e f)) (Rep e))
+--
 
 data Crumbs = Here | GoLeft Crumbs | GoRight Crumbs
 
@@ -47,7 +57,7 @@ type family HasId e :: Res where
     HasId Id = Found Here
     HasId (M1 i c a p) = HasId (a p)
     HasId (U1 p) = NotFound
-    HasId (K1 i Id p) = Found Here
+    HasId (K1 i t p) = HasId t
     HasId ((l :+: r) p) = Choose (HasId (l p)) (HasId (r p))
     HasId ((l :*: r) p) = Choose (HasId (l p)) (HasId (r p))
     HasId a = NotFound

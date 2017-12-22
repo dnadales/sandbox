@@ -1,3 +1,5 @@
 .stack-work/
 receiving-strings-via-sockets.cabal
-*~*.class
+*~
+*.class
+
