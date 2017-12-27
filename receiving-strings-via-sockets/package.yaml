@@ -51,4 +51,7 @@ tests:
     dependencies:
     - hspec
     - QuickCheck
+    - quickcheck-text
+    - async
+    
     - receiving-strings-via-sockets
