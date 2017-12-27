@@ -8,9 +8,10 @@ module Network.TextViaSockets
     , readLineFrom
     , putLineTo
     , close
+    , acceptOn
     ) where
 
-import Network.Socket hiding (recv, close)
+import Network.Socket hiding (recv, close, send)
 import qualified Network.Socket as Socket
 import Network.Socket.ByteString
 import Data.Text (Text)
@@ -32,15 +33,17 @@ data Connection = Connection
     , socketReaderTid :: ThreadId
     }
 
--- | Serve on the given port number. This function will block until a client
--- connects to the server.
-serveOn :: PortNumber -> IO Connection
-serveOn p = do
+-- | Accept byte-streams by serving on the given port number. This function
+-- will block until a client connects to the server.
+-- 
+acceptOn :: PortNumber -> IO Connection
+acceptOn p = do
     sock <- socket AF_INET Stream 0
     setSocketOption sock ReuseAddr 1
     bind sock (SockAddrInet p iNADDR_ANY)
     listen sock 1 -- Only one queued connection.
-    undefined
+    (conn, _) <- accept sock 
+    mkConnection conn
 
 -- | Connect to the given host and service name (usually a port number).
 --
@@ -51,8 +54,11 @@ connectTo host sn = withSocketsDo $ do
     let serveraddr = head addrinfos
     sock <- socket (addrFamily serveraddr) Stream defaultProtocol
     connect sock (addrAddress serveraddr)
+    mkConnection sock
+
+mkConnection sock = do
     -- Create an empty queue of lines.
-    lTQ <- newTQueueIO
+    lTQ <- newTQueueIO    
     -- Spawn the reader process.
     rTid <- forkIO $ reader sock lTQ [] (streamDecodeUtf8With lenientDecode) 
     return $ Connection sock lTQ rTid
@@ -113,7 +119,9 @@ readLineFrom Connection {linesTQ} = atomically $ readTQueue linesTQ
 
 -- | Put a text line onto the given connection.
 putLineTo :: Connection -> Text -> IO ()
-putLineTo = undefined
+putLineTo Connection {connSock} text = do
+    sendAll connSock (encodeUtf8 text)
+    sendAll connSock (encodeUtf8 "\n") -- Send the line terminator as well.
 
 -- | Close the connection.
 close :: Connection -> IO ()
