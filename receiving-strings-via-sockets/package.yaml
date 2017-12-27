@@ -49,4 +49,6 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
+    - hspec
+    - QuickCheck
     - receiving-strings-via-sockets
