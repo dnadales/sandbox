@@ -17,13 +17,6 @@ import           Data.Text.Arbitrary ()
 
 import Network.TextViaSockets
 
-newtype ValidPort = ValidPort {port :: PortNumber} deriving (Show, Eq)
-
-instance Arbitrary ValidPort where
-    arbitrary = do
-        nr <- choose (49152, 65535) -- See https://en.wikipedia.org/wiki/Ephemeral_port
-        return $ ValidPort (fromInteger nr)
-
 -- | Timeout token.
 data Timeout = Timeout
 
@@ -43,13 +36,13 @@ sndRcvProc conn howMany svrMsgs aSvrTV =
           wait a
           close conn
           return res
-    -- An IOException will likely happen when we the
-    -- address is already in use.        
+    -- In case of an IOException we have to cancel the process that is waiting
+    -- for input.
       handler :: IOException -> IO [Text]
       handler ex = do
           aSvr <- takeMVar aSvrTV
           cancel aSvr
-          throwIO ex  
+          throwIO ex
 
 sendMsgs :: Connection -> [Text] -> IO ()
 sendMsgs conn = traverse_ (putLineTo conn)
@@ -74,22 +67,29 @@ allMessagesReceived :: [PrintableString] -- ^ Messages to be sent to the client.
                     -> [PrintableString] -- ^ Messages to be sent to the server.
                     -> Property
 allMessagesReceived strsCli strsSvr = monadicIO $ do
-    aCliTV <- run newEmptyMVar
-    aSvrTV <- run newEmptyMVar
-    sock <- run getFreeSocket
-    a <- run $ async $ acceptOnSocket sock
-    pnum <- run $ socketPort sock
-    cliConn <- run $ connectToWithRetry "localhost" (show pnum)
-    svrConn <- run $ wait a
+    (cliConn, svrConn, aCliTV, aSvrTV) <- run $ getCliSvrConns
+    -- Start the sending and receiving processes.
     aCli <- run $ async $ sndRcvProc cliConn (length msgsCli) msgsSvr aSvrTV
     aSvr <- run $ async $ sndRcvProc svrConn (length msgsSvr) msgsCli aCliTV
+    -- Put the async handles in the MVar's
     run $ putMVar aCliTV aCli
-    run $ putMVar aSvrTV aSvr    
+    run $ putMVar aSvrTV aSvr
+    -- Wait for the results
     resCli <- run $ waitCatch aCli
     resSvr <- run $ waitCatch aSvr
+    -- Check the results
     checkMessages resCli msgsCli
     checkMessages resSvr msgsSvr
     where
+      getCliSvrConns = do
+          aCliTV <- newEmptyMVar
+          aSvrTV <- newEmptyMVar
+          sock <- getFreeSocket
+          a <-  async $ acceptOnSocket sock
+          pnum <-  socketPort sock
+          cliConn <- connectToWithRetry "localhost" (show pnum)
+          svrConn <- wait a
+          return (cliConn, svrConn, aCliTV, aSvrTV)
       msgsCli = map (T.pack . getPrintableString) strsCli
       msgsSvr = map (T.pack . getPrintableString) strsSvr
 
@@ -99,7 +99,7 @@ clientReceivesAll strs =
 
 timeout :: IO Timeout
 timeout = do
-    threadDelay ((10:: Int) ^ (6 :: Int))
+    threadDelay ((10 :: Int) ^ (6 :: Int))
     return Timeout
 
 serverReveivesAll :: [PrintableString] -> Property
@@ -109,10 +109,9 @@ serverReveivesAll =
 spec :: Spec
 spec =
     describe "Good weather messages reception:" $ do
-        it "The client receives all the messages" $ 
+        it "The client receives all the messages" $
             property clientReceivesAll
         it "The server receives all the messages" $
             property serverReveivesAll
         it "The server and client receive all the messages" $
             property allMessagesReceived
-            
