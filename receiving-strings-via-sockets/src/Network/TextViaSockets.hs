@@ -5,10 +5,13 @@
 module Network.TextViaSockets
     ( Connection ()
     , connectTo
+    , connectToWithRetry
     , readLineFrom
     , putLineTo
     , close
     , acceptOn
+    , acceptOnSocket
+    , getFreeSocket    
     ) where
 
 import Network.Socket hiding (recv, close, send)
@@ -26,13 +29,14 @@ import Data.Text.Encoding.Error
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as B
 import Control.Exception.Base
+import System.IO.Error
     
 data Connection = Connection
     { connSock :: Socket
     , linesTQ :: TQueue Text
     , socketReaderTid :: ThreadId
     }
-
+    
 -- | Accept byte-streams by serving on the given port number. This function
 -- will block until a client connects to the server.
 -- 
@@ -41,11 +45,24 @@ acceptOn p = do
     sock <- socket AF_INET Stream 0
     setSocketOption sock ReuseAddr 1
     bind sock (SockAddrInet p iNADDR_ANY)
+    acceptOnSocket sock
+
+acceptOnSocket :: Socket -> IO Connection
+acceptOnSocket sock = do
     listen sock 1 -- Only one queued connection.
     (conn, _) <- accept sock 
     mkConnection conn
 
--- | Connect to the given host and service name (usually a port number).
+-- | Like @acceptOn@ but it asks the operating system for a free port, and
+-- returns this free port number together with a connection.
+getFreeSocket :: IO Socket
+getFreeSocket = do
+    sock <- socket AF_INET Stream 0
+    setSocketOption sock ReuseAddr 1
+    bind sock (SockAddrInet aNY_PORT iNADDR_ANY)
+    return sock
+
+-- | Connect to the given host and service name (usually a port number). 
 --
 connectTo :: HostName -> ServiceName -> IO Connection
 connectTo host sn = withSocketsDo $ do
@@ -55,6 +72,19 @@ connectTo host sn = withSocketsDo $ do
     sock <- socket (addrFamily serveraddr) Stream defaultProtocol
     connect sock (addrAddress serveraddr)
     mkConnection sock
+
+-- | Like connect to, but if the server is not available it retries a number of
+-- times before raising an exception.
+connectToWithRetry :: HostName -> ServiceName -> IO Connection
+connectToWithRetry host sn = gConnectToWithRetry (3 :: Int)
+    where gConnectToWithRetry 0 = fail $ "Could not connect to "
+                                       ++ show host ++ ":" ++ show sn
+          gConnectToWithRetry n = connectTo host sn `catch` handler
+              where 
+                handler :: IOException -> IO Connection
+                handler _ = do
+                    threadDelay (10^6)
+                    gConnectToWithRetry (n-1)
 
 mkConnection :: Socket -> IO Connection
 mkConnection sock = do

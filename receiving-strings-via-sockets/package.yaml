@@ -37,6 +37,8 @@ executables:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -Werror
+    - -Wall    
     dependencies:
     - receiving-strings-via-sockets
 
@@ -48,6 +50,8 @@ tests:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -Werror
+    - -Wall
     dependencies:
     - hspec
     - QuickCheck

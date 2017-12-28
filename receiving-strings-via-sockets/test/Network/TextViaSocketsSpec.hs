@@ -9,13 +9,10 @@ import Network.Socket hiding (close)
 import Control.Exception.Base hiding (assert)
 import Control.Concurrent.Async
 import qualified Data.Text as T
-import Control.Arrow
-import Control.Concurrent.MVar
 
 import           Test.Hspec
 import           Test.QuickCheck
 import           Test.QuickCheck.Monadic
-import           Test.QuickCheck.Modifiers
 import           Data.Text.Arbitrary ()
 
 import Network.TextViaSockets
@@ -30,19 +27,17 @@ instance Arbitrary ValidPort where
 -- | Timeout token.
 data Timeout = Timeout
 
--- | A process that sends and received data.
-sndRcvProc :: IO Connection  -- ^ How to get a connection.
-           -> Int            -- ^ Number of messages to be received.
-           -> [Text]         -- ^ Messages to send.
-           -> MVar (Async a) -- ^ Async handle to the receiving process. If an
-                             -- exception arises at this process, the receiving
-                             -- process has to be canceled.
+-- | A process that sends and receives data to and from another process, @p@.
+sndRcvProc :: Connection     -- ^ Connection to @p@.
+           -> Int            -- ^ Number of messages to be received from @p@.
+           -> [Text]         -- ^ Messages to send to @p@.
+           -> MVar (Async a) -- ^ Async handle to @p@. If an exception arises
+                             -- at this process, @p@ has to be canceled.
            -> IO (Either Timeout [Text])
-sndRcvProc mConn howMany svrMsgs aSvrTV =
+sndRcvProc conn howMany svrMsgs aSvrTV =
     timeout `race` (sndRcvProc' `catch` handler)
     where
       sndRcvProc' = do
-          conn <- mConn
           a <- async $ sendMsgs conn svrMsgs
           res <- receiveMsgs conn howMany
           wait a
@@ -56,55 +51,38 @@ sndRcvProc mConn howMany svrMsgs aSvrTV =
           cancel aSvr
           throwIO ex  
 
-cliProc :: ValidPort -- ^ Port to connect to. 
-        -> Int       -- ^ Number of messages to be received.
-        -> [Text]    -- ^ Messages to send to the server.
-        -> MVar (Async a) -- ^ Async handle to the server process. If an
-                          -- exception arises at the client, the server process
-                          -- has to be canceled.
-        -> IO (Either Timeout [Text])
-cliProc vPort = sndRcvProc mConn
-    where
-      mConn = connectTo "localhost" (show (port vPort))
-
 sendMsgs :: Connection -> [Text] -> IO ()
 sendMsgs conn = traverse_ (putLineTo conn)
 
 receiveMsgs :: Connection -> Int -> IO [Text]
 receiveMsgs conn howMany = replicateM howMany (readLineFrom conn)
 
-svrProc :: ValidPort -- ^ Port to serve on.
-        -> Int       -- ^ Number of messages to be received.
-        -> [Text]    -- ^ Messages to send to the client.
-        -> MVar (Async a) -- ^ Async handle to the client process. If an exception
-                          -- arises at the server, this process has to be canceled.
-        -> IO (Either Timeout [Text])
-svrProc vPort = sndRcvProc mConn
-  where
-    mConn = acceptOn (port vPort)
-
 checkMessages :: Either a (Either Timeout [Text]) -> [Text] -> PropertyM IO ()
-checkMessages (Left _) _ = monitor $ collect "Address in use."
-checkMessages (Right (Left Timeout)) expected = monitor $ collect "Timeout."
-checkMessages (Right (Right lines)) expected =
-    if lines == expected
+checkMessages (Left _) _ = monitor $ collect ("Address in use." :: String)
+checkMessages (Right (Left Timeout)) _ = monitor $ collect ("Timeout." :: String)
+checkMessages (Right (Right msgs)) expected =
+    if msgs == expected
     then do
-        monitor $ collect "Successful connection."
+        monitor $ collect ("Successful connection." :: String)
         assert True
     else do
-        run $ print lines
+        run $ print msgs
         run $ print expected
         assert False
 
-allMessagesReceived :: ValidPort         -- ^ A port where 
-                    -> [PrintableString] -- ^ Messages to be sent to the client.
+allMessagesReceived :: [PrintableString] -- ^ Messages to be sent to the client.
                     -> [PrintableString] -- ^ Messages to be sent to the server.
                     -> Property
-allMessagesReceived port strsCli strsSvr = monadicIO $ do
+allMessagesReceived strsCli strsSvr = monadicIO $ do
     aCliTV <- run newEmptyMVar
-    aSvrTV <- run newEmptyMVar    
-    aCli <- run $ async $ cliProc port (length msgsCli) msgsSvr aSvrTV
-    aSvr <- run $ async $ svrProc port (length msgsSvr) msgsCli aCliTV
+    aSvrTV <- run newEmptyMVar
+    sock <- run getFreeSocket
+    a <- run $ async $ acceptOnSocket sock
+    pnum <- run $ socketPort sock
+    cliConn <- run $ connectToWithRetry "localhost" (show pnum)
+    svrConn <- run $ wait a
+    aCli <- run $ async $ sndRcvProc cliConn (length msgsCli) msgsSvr aSvrTV
+    aSvr <- run $ async $ sndRcvProc svrConn (length msgsSvr) msgsCli aCliTV
     run $ putMVar aCliTV aCli
     run $ putMVar aSvrTV aSvr    
     resCli <- run $ waitCatch aCli
@@ -115,26 +93,26 @@ allMessagesReceived port strsCli strsSvr = monadicIO $ do
       msgsCli = map (T.pack . getPrintableString) strsCli
       msgsSvr = map (T.pack . getPrintableString) strsSvr
 
-clientReceivesAll :: ValidPort -> [PrintableString] -> Property
-clientReceivesAll vPort strs =
-    allMessagesReceived vPort strs []
+clientReceivesAll :: [PrintableString] -> Property
+clientReceivesAll strs =
+    allMessagesReceived strs []
 
 timeout :: IO Timeout
 timeout = do
-    threadDelay (10^6)
+    threadDelay ((10:: Int) ^ (6 :: Int))
     return Timeout
 
-serverReveivesAll :: ValidPort -> [PrintableString] -> Property
-serverReveivesAll vPort =
-    allMessagesReceived vPort []
+serverReveivesAll :: [PrintableString] -> Property
+serverReveivesAll =
+    allMessagesReceived []
 
 spec :: Spec
 spec =
     describe "Good weather messages reception:" $ do
         it "The client receives all the messages" $ 
-            quickCheck clientReceivesAll
+            property clientReceivesAll
         it "The server receives all the messages" $
-            quickCheck serverReveivesAll
+            property serverReveivesAll
         it "The server and client receive all the messages" $
-            quickCheck allMessagesReceived
+            property allMessagesReceived
             
