@@ -122,20 +122,12 @@ clientReceivesAll vPort strs =
 timeout :: IO Timeout
 timeout = do
     threadDelay (10^6)
-    putStrLn "timing out"
     return Timeout
 
 serverReveivesAll :: ValidPort -> [PrintableString] -> Property
 serverReveivesAll vPort =
     allMessagesReceived vPort []
 
-serverAndClientReceiveAll :: ValidPort
-                          -> [PrintableString] -- ^ Messages for the server.
-                          -> [PrintableString] -- ^ Messages for the client.
-                          -> Property
-serverAndClientReceiveAll serStrs cliStrs = undefined
-      
-    
 spec :: Spec
 spec =
     describe "Good weather messages reception:" $ do
@@ -144,5 +136,5 @@ spec =
         it "The server receives all the messages" $
             quickCheck serverReveivesAll
         it "The server and client receive all the messages" $
-            pending
+            quickCheck allMessagesReceived
             
