@@ -56,6 +56,7 @@ connectTo host sn = withSocketsDo $ do
     connect sock (addrAddress serveraddr)
     mkConnection sock
 
+mkConnection :: Socket -> IO Connection
 mkConnection sock = do
     -- Create an empty queue of lines.
     lTQ <- newTQueueIO    
@@ -128,4 +129,3 @@ close :: Connection -> IO ()
 close Connection{connSock, socketReaderTid} = do
     Socket.close connSock
     killThread socketReaderTid
-

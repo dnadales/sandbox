@@ -30,6 +30,32 @@ instance Arbitrary ValidPort where
 -- | Timeout token.
 data Timeout = Timeout
 
+-- | A process that sends and received data.
+sndRcvProc :: IO Connection  -- ^ How to get a connection.
+           -> Int            -- ^ Number of messages to be received.
+           -> [Text]         -- ^ Messages to send.
+           -> MVar (Async a) -- ^ Async handle to the receiving process. If an
+                             -- exception arises at this process, the receiving
+                             -- process has to be canceled.
+           -> IO (Either Timeout [Text])
+sndRcvProc mConn howMany svrMsgs aSvrTV =
+    timeout `race` (sndRcvProc' `catch` handler)
+    where
+      sndRcvProc' = do
+          conn <- mConn
+          a <- async $ sendMsgs conn svrMsgs
+          res <- receiveMsgs conn howMany
+          wait a
+          close conn
+          return res
+    -- An IOException will likely happen when we the
+    -- address is already in use.        
+      handler :: IOException -> IO [Text]
+      handler ex = do
+          aSvr <- takeMVar aSvrTV
+          cancel aSvr
+          throwIO ex  
+
 cliProc :: ValidPort -- ^ Port to connect to. 
         -> Int       -- ^ Number of messages to be received.
         -> [Text]    -- ^ Messages to send to the server.
@@ -38,22 +64,9 @@ cliProc :: ValidPort -- ^ Port to connect to.
                           -- has to be canceled.
         -> IO (Either Timeout [Text])
 cliProc vPort howMany svrMsgs aSvrTV =
-    timeout `race` (cliProc' `catch` handler)
-    where cliProc' = do
-              conn <- connectTo "localhost" (show (port vPort))
-              a <- async $ sendMsgs conn svrMsgs
-              res <- receiveMsgs conn howMany
-              wait a
-              close conn
-              return res
-    -- An IOException will likely happen when we the
-    -- address is already in use.        
-          handler :: IOException -> IO [Text]
-          handler ex = do
-              aSvr <- takeMVar aSvrTV
-              cancel aSvr
-              throwIO ex  
-              
+    sndRcvProc mConn howMany svrMsgs aSvrTV
+    where
+      mConn = connectTo "localhost" (show (port vPort))
 
 sendMsgs :: Connection -> [Text] -> IO ()
 sendMsgs conn msgs = traverse_ (putLineTo conn) msgs
@@ -68,22 +81,9 @@ svrProc :: ValidPort -- ^ Port to serve on.
                           -- arises at the server, this process has to be canceled.
         -> IO (Either Timeout [Text])
 svrProc vPort howMany msgs aCliTV = do
-    timeout `race` (svrProc' `catch` handler)
+    sndRcvProc mConn howMany msgs aCliTV 
   where
-    svrProc' = do
-        conn <- acceptOn (port vPort)
-        a <- async $ receiveMsgs conn howMany
-        sendMsgs conn msgs
-        res <- wait a
-        close conn
-        return res
-    -- An IOException will likely happen when we the
-    -- address is already in use.        
-    handler :: IOException -> IO [Text]
-    handler ex = do
-        aCli <- takeMVar aCliTV
-        cancel aCli
-        throwIO ex  
+    mConn = acceptOn (port vPort)
 
 checkMessages :: Either a (Either Timeout [Text]) -> [Text] -> PropertyM IO ()
 checkMessages (Left _) _ = monitor $ collect "Address in use."
@@ -123,7 +123,7 @@ clientReceivesAll vPort strs =
 
 timeout :: IO Timeout
 timeout = do
-    threadDelay (2 * 10^6)
+    threadDelay (10^6)
     putStrLn "timing out"
     return Timeout
 
