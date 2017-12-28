@@ -151,8 +151,8 @@ readLineFrom Connection {linesTQ} = atomically $ readTQueue linesTQ
 -- | Put a text line onto the given connection.
 putLineTo :: Connection -> Text -> IO ()
 putLineTo Connection {connSock} text = do
-    sendAll connSock (encodeUtf8 text)
-    sendAll connSock (encodeUtf8 "\n") -- Send the line terminator as well.
+    let textEol = T.snoc text '\n'
+    sendAll connSock (encodeUtf8 textEol)
 
 -- | Close the connection.
 close :: Connection -> IO ()

@@ -101,8 +101,10 @@ clientReceivesAll strs =
 
 timeout :: IO Timeout
 timeout = do
-    threadDelay ((10 :: Int) ^ (6 :: Int))
+    threadDelay t
     return Timeout
+    where t :: Int
+          t = 3 * (10 :: Int) ^ (6 :: Int)
 
 serverReveivesAll :: [PrintableString] -> Property
 serverReveivesAll =
