@@ -9,6 +9,7 @@ import Network.Socket hiding (close)
 import Control.Exception.Base hiding (assert)
 import Control.Concurrent.Async
 import qualified Data.Text as T
+import Control.Arrow
 
 import           Test.Hspec
 import           Test.QuickCheck
@@ -25,15 +26,26 @@ instance Arbitrary ValidPort where
         nr <- choose (9000, 65535)
         return $ ValidPort (fromInteger nr)
 
-readerProcess :: IO Connection -> Int -> IO [Text]
-readerProcess mConn howMany = do
-    conn <- mConn
-    lines <- replicateM howMany (readLineFrom conn)
-    close conn
-    return lines
+-- | Timeout token.
+data Timeout = Timeout
 
-writerProcess :: IO Connection -> [Text] -> Async a -> IO ()
-writerProcess mConn msgs a = tryToWrite `catch` handler
+readerProcess :: IO Connection -> Int -> IO (Either Timeout [Text])
+readerProcess mConn howMany =
+    left (const Timeout) <$> timeout `race` doRead
+    where doRead = do
+              conn <- mConn
+              lines <- replicateM howMany (readLineFrom conn)
+              close conn
+              return lines
+    
+writerProcess :: IO Connection
+              -> [Text]
+              -> Async a -- ^ Async handle to the reader process. If an
+                         -- exception arises at the writer, this process has to
+                         -- be canceled.
+              -> IO ()
+writerProcess mConn msgs a = 
+    (tryToWrite `catch` handler) `race_` timeout
   where
     tryToWrite = do
         conn <- mConn
@@ -44,11 +56,14 @@ writerProcess mConn msgs a = tryToWrite `catch` handler
     handler ex = cancel a -- An IOException will likely happen when we the
                           -- address is already in use.
 
-checkMessages :: Either a [Text] -> [Text] -> PropertyM IO ()
-checkMessages (Left _) _ = monitor $ collect "Address in use"
-checkMessages (Right lines) expected =
+checkMessages :: Either a (Either Timeout [Text]) -> [Text] -> PropertyM IO ()
+checkMessages (Left _) _ = monitor $ collect "Address in use."
+checkMessages (Right (Left Timeout)) expected = monitor $ collect "Timeout."
+checkMessages (Right (Right lines)) expected =
     if lines == expected
-    then assert True
+    then do
+        monitor $ collect "Successful connection."
+        assert True
     else do
         run $ print lines
         run $ print $ expected
@@ -74,13 +89,25 @@ clientReceivesAll validPort strs =
       connectToServer = connectTo "localhost" (show (port validPort))
       serveOnPort = acceptOn (port validPort)
 
+timeout :: IO ()
+timeout =
+    threadDelay (10^6)
+
+
 serverReveivesAll :: ValidPort -> [PrintableString] -> Property
-serverReveivesAll validPort strs = 
+serverReveivesAll validPort strs =
     allMessagesReceived serveOnPort connectToServer validPort strs
     where
       connectToServer = connectTo "localhost" (show (port validPort))
       serveOnPort = acceptOn (port validPort)
 
+serverAndClientReceiveAll :: ValidPort
+                          -> [PrintableString] -- ^ Messages for the server.
+                          -> [PrintableString] -- ^ Messages for the client.
+                          -> Property
+serverAndClientReceiveAll serStrs cliStrs = undefined
+      
+    
 spec :: Spec
 spec =
     describe "Good weather messages reception:" $ do
