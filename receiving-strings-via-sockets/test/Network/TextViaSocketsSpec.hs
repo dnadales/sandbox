@@ -63,13 +63,12 @@ cliProc :: ValidPort -- ^ Port to connect to.
                           -- exception arises at the client, the server process
                           -- has to be canceled.
         -> IO (Either Timeout [Text])
-cliProc vPort howMany svrMsgs aSvrTV =
-    sndRcvProc mConn howMany svrMsgs aSvrTV
+cliProc vPort = sndRcvProc mConn
     where
       mConn = connectTo "localhost" (show (port vPort))
 
 sendMsgs :: Connection -> [Text] -> IO ()
-sendMsgs conn msgs = traverse_ (putLineTo conn) msgs
+sendMsgs conn = traverse_ (putLineTo conn)
 
 receiveMsgs :: Connection -> Int -> IO [Text]
 receiveMsgs conn howMany = replicateM howMany (readLineFrom conn)
@@ -80,8 +79,7 @@ svrProc :: ValidPort -- ^ Port to serve on.
         -> MVar (Async a) -- ^ Async handle to the client process. If an exception
                           -- arises at the server, this process has to be canceled.
         -> IO (Either Timeout [Text])
-svrProc vPort howMany msgs aCliTV = do
-    sndRcvProc mConn howMany msgs aCliTV 
+svrProc vPort = sndRcvProc mConn
   where
     mConn = acceptOn (port vPort)
 
@@ -95,7 +93,7 @@ checkMessages (Right (Right lines)) expected =
         assert True
     else do
         run $ print lines
-        run $ print $ expected
+        run $ print expected
         assert False
 
 allMessagesReceived :: ValidPort         -- ^ A port where 
@@ -103,8 +101,8 @@ allMessagesReceived :: ValidPort         -- ^ A port where
                     -> [PrintableString] -- ^ Messages to be sent to the server.
                     -> Property
 allMessagesReceived port strsCli strsSvr = monadicIO $ do
-    aCliTV <- run $ newEmptyMVar
-    aSvrTV <- run $ newEmptyMVar    
+    aCliTV <- run newEmptyMVar
+    aSvrTV <- run newEmptyMVar    
     aCli <- run $ async $ cliProc port (length msgsCli) msgsSvr aSvrTV
     aSvr <- run $ async $ svrProc port (length msgsSvr) msgsCli aCliTV
     run $ putMVar aCliTV aCli
@@ -128,8 +126,8 @@ timeout = do
     return Timeout
 
 serverReveivesAll :: ValidPort -> [PrintableString] -> Property
-serverReveivesAll vPort strs =
-    allMessagesReceived vPort [] strs
+serverReveivesAll vPort =
+    allMessagesReceived vPort []
 
 serverAndClientReceiveAll :: ValidPort
                           -> [PrintableString] -- ^ Messages for the server.
