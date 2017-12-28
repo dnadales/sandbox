@@ -25,39 +25,69 @@ instance Arbitrary ValidPort where
         nr <- choose (9000, 65535)
         return $ ValidPort (fromInteger nr)
 
-allMessagesReceived :: ValidPort -> [PrintableString] -> Property
-allMessagesReceived validPort strs = monadicIO $ do
-    a <- run $ async $ do
-        conn <- connectTo "localhost" (show (port validPort))
-        lines <- replicateM (length msgs) (readLineFrom conn)
+readerProcess :: IO Connection -> Int -> IO [Text]
+readerProcess mConn howMany = do
+    conn <- mConn
+    lines <- replicateM howMany (readLineFrom conn)
+    close conn
+    return lines
+
+writerProcess :: IO Connection -> [Text] -> Async a -> IO ()
+writerProcess mConn msgs a = tryToWrite `catch` handler
+  where
+    tryToWrite = do
+        conn <- mConn
+        traverse_ (putLineTo conn) msgs
         close conn
-        return lines
-    run $ forkIO $ writer msgs a
+        return ()
+    handler :: IOException -> IO ()
+    handler ex = cancel a -- An IOException will likely happen when we the
+                          -- address is already in use.
+
+checkMessages :: Either a [Text] -> [Text] -> PropertyM IO ()
+checkMessages (Left _) _ = monitor $ collect "Address in use"
+checkMessages (Right lines) expected =
+    if lines == expected
+    then assert True
+    else do
+        run $ print lines
+        run $ print $ expected
+        assert False
+
+allMessagesReceived :: IO Connection -- ^ How to get a reader connection.
+                    -> IO Connection -- ^ How to get a writer connection.
+                    -> ValidPort
+                    -> [PrintableString]
+                    -> Property
+allMessagesReceived readerConnM writerConnM validPort strs = monadicIO $ do
+    a <- run $ async $ readerProcess readerConnM (length msgs)
+    run $ forkIO $ writerProcess writerConnM msgs a
     res <- run $ waitCatch a
-    case res of
-        Left _ -> assert $ True
-        Right lines ->
-            if lines == msgs
-            then assert True
-            else do
-                run $ print lines
-                run $ print $ msgs
-                assert False
+    checkMessages res msgs
     where
       msgs = map (T.pack . getPrintableString) strs
-      writer xs a = tryToWrite `catch` handler
-          where 
-            tryToWrite = do
-                conn <- acceptOn (port validPort)
-                traverse_ (putLineTo conn) xs
-                return ()
-            handler :: IOException -> IO ()
-            handler ex = cancel a -- An IOException will likely happen when we
-                                  -- the address is already in use.
-              
+
+clientReceivesAll :: ValidPort -> [PrintableString] -> Property
+clientReceivesAll validPort strs =
+    allMessagesReceived connectToServer serveOnPort validPort strs
+    where
+      connectToServer = connectTo "localhost" (show (port validPort))
+      serveOnPort = acceptOn (port validPort)
+
+serverReveivesAll :: ValidPort -> [PrintableString] -> Property
+serverReveivesAll validPort strs = 
+    allMessagesReceived serveOnPort connectToServer validPort strs
+    where
+      connectToServer = connectTo "localhost" (show (port validPort))
+      serveOnPort = acceptOn (port validPort)
 
 spec :: Spec
 spec =
-    describe "Good weather messages reception." $ 
-        it "receives all the messages" $ property $
-             \port msgs -> allMessagesReceived port msgs
+    describe "Good weather messages reception:" $ do
+        it "The client receives all the messages" $ 
+            quickCheck clientReceivesAll
+        it "The server receives all the messages" $
+            quickCheck serverReveivesAll
+        it "The server and client receive all the messages" $
+            pending
+            
