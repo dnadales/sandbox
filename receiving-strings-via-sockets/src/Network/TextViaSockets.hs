@@ -106,7 +106,7 @@ mkConnection sock = do
              -> IO ()
       reader sock lTQ acc f = doRead acc f `catch` handler
           where doRead acc' f' = do
-                    msg <- recv sock 8 -- 1024
+                    msg <- recv sock 1024
                     -- Receiving a null byte-string probably means that the
                     -- sending side has closed the connection.
                     unless (B.null msg) $ do

@@ -27,7 +27,7 @@ sndRcvProc :: Connection     -- ^ Connection to @p@.
            -> MVar (Async a) -- ^ Async handle to @p@. If an exception arises
                              -- at this process, @p@ has to be canceled.
            -> IO (Either Timeout [Text])
-sndRcvProc conn howMany svrMsgs aSvrTV =
+sndRcvProc conn howMany svrMsgs aTV =
     timeout `race` (sndRcvProc' `catch` handler)
     where
       sndRcvProc' = do
@@ -40,8 +40,8 @@ sndRcvProc conn howMany svrMsgs aSvrTV =
     -- for input.
       handler :: IOException -> IO [Text]
       handler ex = do
-          aSvr <- takeMVar aSvrTV
-          cancel aSvr
+          a <- takeMVar aTV
+          cancel a
           throwIO ex
 
 sendMsgs :: Connection -> [Text] -> IO ()
@@ -81,17 +81,19 @@ allMessagesReceived strsCli strsSvr = monadicIO $ do
     checkMessages resCli msgsCli
     checkMessages resSvr msgsSvr
     where
-      getCliSvrConns = do
-          aCliTV <- newEmptyMVar
-          aSvrTV <- newEmptyMVar
-          sock <- getFreeSocket
-          a <-  async $ acceptOnSocket sock
-          pnum <-  socketPort sock
-          cliConn <- connectToWithRetry "localhost" (show pnum)
-          svrConn <- wait a
-          return (cliConn, svrConn, aCliTV, aSvrTV)
       msgsCli = map (T.pack . getPrintableString) strsCli
       msgsSvr = map (T.pack . getPrintableString) strsSvr
+
+getCliSvrConns :: IO (Connection, Connection, MVar (Async a), MVar (Async a))
+getCliSvrConns = do
+    aCliTV <- newEmptyMVar
+    aSvrTV <- newEmptyMVar
+    sock <- getFreeSocket
+    a <-  async $ acceptOnSocket sock
+    pnum <-  socketPort sock
+    cliConn <- connectToWithRetry "localhost" (show pnum)
+    svrConn <- wait a
+    return (cliConn, svrConn, aCliTV, aSvrTV)
 
 clientReceivesAll :: [PrintableString] -> Property
 clientReceivesAll strs =
@@ -106,8 +108,11 @@ serverReveivesAll :: [PrintableString] -> Property
 serverReveivesAll =
     allMessagesReceived []
 
+blockedOnSTM :: Selector BlockedIndefinitelyOnSTM
+blockedOnSTM = const True
+
 spec :: Spec
-spec =
+spec = do
     describe "Good weather messages reception:" $ do
         it "The client receives all the messages" $
             property clientReceivesAll
@@ -115,3 +120,8 @@ spec =
             property serverReveivesAll
         it "The server and client receive all the messages" $
             property allMessagesReceived
+    describe "Closing:" $ do
+        it "The client and server can be closed" $ do
+            (cliConn, svrConn, _, _) <- getCliSvrConns
+            close cliConn
+            close svrConn
