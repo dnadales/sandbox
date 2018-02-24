@@ -1,0 +1,35 @@
+name:                lenses-for-adts-example
+version:             0.1.0.0
+github:              "capitanbatata/sandbox/lenses-for-adts-example"
+license:             BSD3
+author:              "Damian Nadales"
+maintainer:          "damian.nadales@gmail.com"
+copyright:           "Copyright: (c) 2017 Damian Nadales"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on Github at <https://github.com/capitanbatata/lenses-for-adts-example#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+
+library:
+  source-dirs: src
+  dependencies:
+  - unordered-containers
+  - text
+  - microlens
+  - hashable
+ghc-options:
+  - -Wall
+  - -Werror
+
