@@ -25,7 +25,7 @@ dependencies:
 library:
   source-dirs: src
   dependencies:
-  - unordered-containers
+  - containers
   - text
   - microlens
   - hashable

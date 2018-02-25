@@ -1,23 +1,23 @@
 -- | 
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeFamilies      #-}
-{-# LANGUAGE OverloadedLists   #-}
+{-# LANGUAGE DeriveGeneric        #-}
+{-# LANGUAGE OverloadedStrings    #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE OverloadedLists      #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances    #-}
 module SimpleADTs where
 
-import           Data.HashMap.Strict (HashMap)
-import qualified Data.HashMap.Strict as Map 
-import           Data.Text           (Text)
-import qualified Data.Text           as T
+import           Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map 
 import           Lens.Micro
 import           GHC.Generics (Generic)
-import           Data.Hashable
 import           GHC.Exts
+import           Data.List
 
 -- * Our basic data-types.
 
 newtype ADTs = ADTs
-    { adtsToMap :: HashMap Name (ADT Sort)
+    { adtsToMap :: Map Name (ADT Sort)
     } deriving (Eq, Show)
 
 data ADT t = ADT
@@ -25,15 +25,13 @@ data ADT t = ADT
     , constructors :: Constructors t
     } deriving (Eq, Show)
 
-newtype Name = Name Text deriving (Eq, Show, Generic)
-
-instance Hashable Name
+newtype Name = Name String deriving (Eq, Ord, Show, Generic)
 
 instance IsString Name where
-    fromString = Name . T.pack
+    fromString = Name
 
 newtype Constructors t = Constructors
-    { constructorsToMap :: HashMap Name (Constructor t)
+    { constructorsToMap :: Map Name (Constructor t)
     } deriving (Eq, Show)
 
 data Constructor t = Constructor
@@ -50,7 +48,76 @@ data Field t = Field
     , _sort :: t
     } deriving (Eq, Show)
 
-newtype Sort = Sort Text deriving (Eq, Show)
+newtype Sort = Sort String deriving (Eq, Show)
+
+-- * Some utility classes and functions to make our life easier
+
+-- First let's define some infix operators to make our life easier:
+--
+
+-- | Class to pretty print an ADT and its parts:
+
+class ShowPretty a where
+    showPretty :: a -> String
+    showPretty = showPrettyIndent ""
+
+    showPrettyIndent :: String -> a -> String
+
+instance ShowPretty String where
+    showPrettyIndent xs = (xs ++) . id
+
+instance ShowPretty Name where
+    showPrettyIndent xs (Name n) = xs ++ n
+
+instance ShowPretty t => ShowPretty (Field t) where
+    showPrettyIndent xs (Field n s) = xs ++ showPretty n ++ ": " ++ showPretty s
+
+instance ShowPretty t => ShowPretty (Fields t) where
+    showPrettyIndent xs (Fields ys) = xs ++ intercalate " " (showPretty <$> ys)
+
+instance ShowPretty t => ShowPretty (Constructor t) where
+    showPrettyIndent xs (Constructor n fs) = showPrettyIndent xs n ++ " {" ++ showPretty fs ++ "}" 
+
+instance ShowPretty t => ShowPretty (Constructors t) where
+    showPrettyIndent xs (Constructors cs) =
+        xs ++ "  " ++ (intercalate ("\n" ++ xs ++ "| ") $ showPretty <$> Map.elems cs)
+
+instance ShowPretty t => ShowPretty (ADT t) where
+    showPrettyIndent xs (ADT n cs) = xs ++ showPretty n ++ " = \n" ++ showPrettyIndent (xs ++ "   ") cs
+
+instance IsString (Constructor t) where
+    fromString xs = Constructor (fromString xs) []
+
+pprint :: ShowPretty t => t -> IO ()
+pprint = putStrLn . showPretty
+
+(.:) :: Name -> t -> Field t
+(.:) = Field
+
+(.>) :: Name -> [Field t] -> Constructor t
+n .> fs = Constructor n (fromList fs)
+
+(.= ) :: Name -> [Constructor t] -> ADT t
+n .= cs = ADT n (fromList cs)
+
+csEx0 :: Constructors String
+csEx0 =
+   [ "Point" .> [ "x" .: "Int", "y" .: "Int"]
+   , "Foo"   .> [ "bar" .: "Baz" ]
+   ]
+
+mADT :: ADT String
+mADT =
+    "IntList" .= [ "Nil"
+                 , "List" .> ["head" .: "Int", "tail" .: "IntList"
+                             ]
+                 ]
+
+-- Try this out:
+--
+-- > pprint csEx0
+-- > pprint mADT
+--
 
 -- * Our problem.
 
@@ -63,6 +130,11 @@ allFields adt =
 -- It is easy to get lost in the map's, concatMap, conversions from map to lists.
 --
 -- Could we use lenses somehow to make the definition of fields more understandable?
+
+-- This will get worse once we start with our second problem: convert all the
+-- field sort's form @String@ to @Sort@.
+--
+-- 
 
 -- * Looking for a solution using lenses
 
@@ -139,20 +211,6 @@ allFieldsOfConstructors = toListOf allFieldsOfConstructorsT
 -- > allFieldsOfConstructors fs = fs ^.. allFieldsOfConstructorsT
 
 -- ** Trying out our traversals!
-
--- First let's define some infix operators to make our life easier:
---
-(.:) :: Name -> t -> Field t
-(.:) = Field
-
-(.>) :: Name -> [Field t] -> Constructor t
-n .> fs = Constructor n (fromList fs)
-
-csEx0 :: Constructors Text
-csEx0 =
-   [ "Point" .> [ "x" .: "Int", "y" .: "Int"]
-   , "Foo"   .> [ "bar" .: "Baz" ]
-   ]
 
 -- Things to try out:
 --
