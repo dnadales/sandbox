@@ -58,7 +58,7 @@ streamNumbers = StreamGenerator $ \sendFirst sendRest -> do
               .| mapM_ sendFirst
               .| mapM_ sendRest
     where
-      delayAndPass a = return a
+      delayAndPass a = threadDelay (10^6) >> return a
 
 app :: Application
 app = serve streamAPI (return streamUsers :<|> return streamNumbers)
