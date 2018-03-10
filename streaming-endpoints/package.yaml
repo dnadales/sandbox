@@ -28,6 +28,12 @@ dependencies:
 - conduit
 - conduit-combinators
 - wai-cors
+- wai-extra
+- text
+- transformers
+- containers
+- wai
+- http-types
 
 library:
   source-dirs: src

@@ -8,7 +8,10 @@ module Lib
     ) where
 
 import Prelude hiding (mapM_, mapM, map)
-import Servant
+import Servant ( Proxy (Proxy), Handler, Tagged, Application
+               , Raw, JSON, (:<|>) ((:<|>)), (:>), serve
+               , Tagged (Tagged)
+               )
 import Servant.API.Stream
 import Data.Aeson.Types
 import GHC.Generics
@@ -27,7 +30,10 @@ import           Data.Conduit.Combinators ( mapM
                                           , map)
 
 import           Network.Wai.Middleware.Cors (simpleCors)
-
+import Network.Wai.EventSource (eventSourceAppChan, ServerEvent)
+import Control.Concurrent.Chan (Chan)
+import Control.Monad.IO.Class (liftIO)
+    
 -- | The data types
 data User = User
   { name :: String
@@ -44,9 +50,10 @@ simon :: User
 simon = User "Simon" 60
 
 -- | API definition.
-type API = UsersEP :<|> NumbersEP
+type API = UsersEP :<|> NumbersEP :<|> SseEP
 type UsersEP = "users" :> StreamGet NewlineFraming JSON (StreamGenerator User)
 type NumbersEP = "numbers" :> StreamGet NewlineFraming JSON (StreamGenerator User)
+type SseEP = "sse" :> Raw
 
 streamAPI :: Proxy API
 streamAPI = Proxy
@@ -81,6 +88,21 @@ streamNumbers = StreamGenerator $ \sendFirst sendRest ->
       sendData f g (False, a)= 
           g a          
 
+sseHandler :: Chan User -> Tagged Handler Application
+-- type Application = Request -> (Response -> IO ResponseReceived) -> IO ResponseReceived
+sseHandler uCh = Tagged $ \req respond -> do
+    liftIO $ print "Hello"
+    eventSourceAppChan (chanT uCh) req respond
+
+myChan :: Chan User
+myChan = undefined
+
+chanT :: Chan User -> Chan ServerEvent
+chanT = undefined
+
 app :: Application
-app = simpleCors $ serve streamAPI (return streamUsers :<|> return streamNumbers)
+app = simpleCors $ serve streamAPI (return streamUsers
+                                    :<|> return streamNumbers
+                                    :<|> sseHandler myChan
+                                   )
 
