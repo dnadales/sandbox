@@ -40,6 +40,7 @@ import qualified Data.Text.Lazy as T
 import           Network.HTTP.Types.Status (status404)
 import           Data.Semigroup ((<>))
 import           Data.Binary.Builder (Builder, fromByteString)
+import           Network.Wai.Middleware.Cors (simpleCors)
 
 -- * The API
 
@@ -109,7 +110,7 @@ asServerEvent msg = ServerEvent
 -- * The application
 
 app :: Env -> Application
-app env = serve api server
+app env = simpleCors $ serve api server
     where
       api :: Proxy API
       api = Proxy

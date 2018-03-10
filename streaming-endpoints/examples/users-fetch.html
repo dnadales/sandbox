@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+ 
+  <head>
+    <meta charset="utf-8"/>
+    <title>Streaming users ...</title>
+  </head>
+ 
+  <body>
+    <h1>The users:</h1>
+    
+    <script>
+/** This works on Chrome and Firefox from version 57. To use this example
+    navigate to about:config and change
+
+    - dom.streams.enabled preference to true
+    - javascript.options.streams to true
+
+
+    See https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream
+*/
+
+fetch('http://localhost:8081/numbers').then(function(response) {
+
+  console.log(response);
+  
+  const reader = response.body.getReader();
+
+  function go() {
+    reader.read().then(function(result) {
+      if (!result.done) {
+        var num = JSON.parse(
+          new TextDecoder("utf-8").decode(result.value)
+        );
+        console.log(
+          "Got number " + num.intVal
+        );        
+        go ();
+      }
+    })
+  }
+
+  go ();
+})
+    </script>
+  </body>
+  
+</html>

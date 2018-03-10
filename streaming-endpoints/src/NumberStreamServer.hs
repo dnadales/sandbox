@@ -29,7 +29,8 @@ import           Conduit  ( Source, (.|)
                           , ZipSource (..)
                           , repeatC
                           , yieldMany
-                          )                 
+                          )
+import           Network.Wai.Middleware.Cors (simpleCors)                 
 -- * The data
 
 newtype Number = Number { intVal :: Int }
@@ -61,7 +62,7 @@ streamNumbers = StreamGenerator $ \sendFirst sendRest ->
       sendData :: (a -> IO ()) -> (a -> IO ()) -> (Bool, a) -> IO ()
       sendData f g (True, a)=
           f a
-      sendData f g (False, a)=
+      sendData _ g (False, a)=
           g a
       numbersConduit :: Source IO Int
       numbersConduit = yieldMany [1..10]
@@ -69,7 +70,7 @@ streamNumbers = StreamGenerator $ \sendFirst sendRest ->
 -- * The application
 
 app :: Application
-app = serve api server
+app = simpleCors $ serve api server
     where
       api :: Proxy API
       api = Proxy

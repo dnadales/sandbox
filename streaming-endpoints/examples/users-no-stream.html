@@ -21,10 +21,11 @@
       oReq.onreadystatechange = function () {
           // Apparently there's no way of getting the content of the response
           // incrementally using XMLHttprequest.
-          console.log(oReq.response);
+
+          console.log(oReq.responseText); // Or alternativelly: `console.log(oReq.response);`
       };
       
-      oReq.open("GET", "http://localhost:8081/users");
+      oReq.open("GET", "http://localhost:8081/numbers");
       oReq.send();
     </script>
   </body>
