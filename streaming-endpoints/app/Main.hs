@@ -1,8 +1,9 @@
 module Main where
 
-import Network.Wai.Handler.Warp
-
-import qualified Lib
+import Network.Wai.Handler.Warp (run)
+import System.Environment (getArgs)
+    
+import qualified NumberStreamServer
 import qualified EchoServer
 
 -- | Testing the echo server:
@@ -17,5 +18,12 @@ import qualified EchoServer
 
 main :: IO ()
 main = do
-    env <- EchoServer.newEnv
-    run 8081 $ EchoServer.app env
+    args <- getArgs
+    case args of
+        ["stream"] ->
+            run 8081 NumberStreamServer.app
+        ["sse"]    ->  do
+            env <- EchoServer.newEnv
+            run 8081 (EchoServer.app env)
+        _         ->
+            putStrLn "Usage: streaming-endpoints-exe (stream | sse)"
