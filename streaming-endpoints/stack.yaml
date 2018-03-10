@@ -44,6 +44,7 @@ extra-deps:
 - servant-server-0.13
 - http-types-0.12.1
 - servant-0.13
+- http-conduit-2.3.0
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

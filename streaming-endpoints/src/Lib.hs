@@ -1,8 +1,8 @@
 {-# LANGUAGE DataKinds       #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators   #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE MonomorphismRestriction #-}
 module Lib
     ( app
     ) where
@@ -13,8 +13,18 @@ import Servant.API.Stream
 import Data.Aeson.Types
 import GHC.Generics
 import Control.Concurrent (threadDelay)
-import Conduit  (Source, (.|), runConduit)
-import           Data.Conduit.Combinators
+import Conduit  ( Source, (.|)
+                , runConduit, yield
+                , getZipSource
+                , ConduitM
+                , ZipSource (..)
+                , repeatC
+                , yieldMany
+                )
+import Data.Void (Void)
+import           Data.Conduit.Combinators ( mapM
+                                          , mapM_
+                                          , map)
 
 -- | The data types
 data User = User
@@ -51,14 +61,23 @@ numbersConduit :: Source IO Int
 numbersConduit = yieldMany [1..10]
 
 streamNumbers :: StreamGenerator User
-streamNumbers = StreamGenerator $ \sendFirst sendRest -> do
-    runConduit $ numbersConduit
-              .| map (User "John")
-              .| mapM delayAndPass
-              .| mapM_ sendFirst
-              .| mapM_ sendRest
+streamNumbers = StreamGenerator $ \sendFirst sendRest ->
+    runConduit $ getZipSource ((,) <$> isFirstSource <*> usersSource)
+              .| mapM_ (sendData sendFirst sendRest)
     where
-      delayAndPass a = threadDelay (10^6) >> return a
+      isFirstSource :: ZipSource IO Bool
+      isFirstSource = ZipSource $ yield True >> repeatC  False
+      usersSource :: ZipSource IO User
+      usersSource = ZipSource $ numbersConduit
+               .| map (User "John")
+               .| mapM delayAndPass
+      delayAndPass a =
+          threadDelay (10^6) >> return a
+      sendData :: (a -> IO ()) -> (a -> IO ()) -> (Bool, a) -> IO ()
+      sendData f g (True, a)= 
+          f a
+      sendData f g (False, a)= 
+          g a          
 
 app :: Application
 app = serve streamAPI (return streamUsers :<|> return streamNumbers)
