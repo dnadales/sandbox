@@ -27,6 +27,7 @@ dependencies:
 - warp
 - conduit
 - conduit-combinators
+- wai-cors
 
 library:
   source-dirs: src

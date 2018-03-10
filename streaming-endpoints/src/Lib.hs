@@ -26,6 +26,8 @@ import           Data.Conduit.Combinators ( mapM
                                           , mapM_
                                           , map)
 
+import           Network.Wai.Middleware.Cors (simpleCors)
+
 -- | The data types
 data User = User
   { name :: String
@@ -80,5 +82,5 @@ streamNumbers = StreamGenerator $ \sendFirst sendRest ->
           g a          
 
 app :: Application
-app = serve streamAPI (return streamUsers :<|> return streamNumbers)
+app = simpleCors $ serve streamAPI (return streamUsers :<|> return streamNumbers)
 
