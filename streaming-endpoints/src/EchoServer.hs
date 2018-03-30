@@ -1,46 +1,40 @@
-{-# LANGUAGE DataKinds       #-}
-{-# LANGUAGE TypeOperators   #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE DeriveGeneric   #-}
+{-# LANGUAGE DataKinds         #-}
+{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeOperators     #-}
 module EchoServer where
 
-import Servant ( Proxy (Proxy), Handler, Tagged, Application
-               , Raw, JSON, (:<|>) ((:<|>)), (:>), serve
-               , Tagged (Tagged)
-               , Post, hoistServer
-               , Server
-               , PostCreated
-               , Capture
-               , NoContent (NoContent)
-               , ReqBody
-               , throwError
-               , err404
-               )
+import           Control.Concurrent.Chan     (Chan, dupChan, newChan, writeChan)
+import           Control.Concurrent.MVar     (MVar)
+import           Control.Concurrent.STM      (atomically)
+import           Control.Concurrent.STM.TVar (TVar, modifyTVar, newTVarIO,
+                                              readTVar)
+import           Control.Monad.IO.Class      (liftIO)
 import           Control.Monad.Trans.Reader  (ReaderT, ask, runReaderT)
-import           Data.Text.Lazy (Text)
 import           Data.Aeson                  (FromJSON, ToJSON)
+import           Data.Binary.Builder         (Builder, fromByteString)
+import           Data.Map                    (Map)
+import qualified Data.Map                    as Map
+import           Data.Semigroup              ((<>))
+import           Data.Text.Encoding          as TE
+import           Data.Text.Lazy              (Text)
+import qualified Data.Text.Lazy              as T
+import           Data.Text.Lazy.Encoding     as TLE
 import           GHC.Generics                (Generic)
-import           Control.Concurrent.MVar (MVar)
-import qualified Data.Map as Map
-import           Data.Map (Map)
-import           Control.Concurrent.Chan (Chan, dupChan, newChan, writeChan)
-import           Network.Wai.EventSource (eventSourceAppChan, ServerEvent
-                                         , ServerEvent (ServerEvent)
-                                         , eventName
-                                         , eventId
-                                         , eventData
-                                         )
-import           Control.Monad.IO.Class (liftIO)
-import           Control.Concurrent.STM (atomically)
-import           Control.Concurrent.STM.TVar (TVar, readTVar, modifyTVar, newTVarIO)
-import           Network.Wai (responseLBS)
-import           Data.Text.Lazy.Encoding as TLE
-import           Data.Text.Encoding as TE
-import qualified Data.Text.Lazy as T
-import           Network.HTTP.Types.Status (status404)
-import           Data.Semigroup ((<>))
-import           Data.Binary.Builder (Builder, fromByteString)
+import           Network.HTTP.Types.Status   (status404)
+import           Network.Wai                 (responseLBS)
+import           Network.Wai.EventSource     (ServerEvent,
+                                              ServerEvent (ServerEvent),
+                                              eventData, eventId, eventName,
+                                              eventSourceAppChan)
 import           Network.Wai.Middleware.Cors (simpleCors)
+import           Servant                     ((:<|>) ((:<|>)), (:>),
+                                              Application, Capture, Handler,
+                                              JSON, NoContent (NoContent), Post,
+                                              PostCreated, Proxy (Proxy), Raw,
+                                              ReqBody, Server, Tagged,
+                                              Tagged (Tagged), err404,
+                                              hoistServer, serve, throwError)
 
 -- * The API
 
@@ -55,7 +49,7 @@ type SendEP = "session"
            :> "echo"
            :> ReqBody '[JSON] Message
            :> Post '[JSON] NoContent
-              
+
 type EventsEP = "session"
              :> Capture "sid" SessionId
              :> "events"
@@ -72,7 +66,7 @@ instance FromJSON Message
 type SessionId = Int
 
 data Env = Env
-    { nextId :: TVar SessionId
+    { nextId       :: TVar SessionId
     , sessionChans :: TVar (Map SessionId (Chan ServerEvent))
     }
 

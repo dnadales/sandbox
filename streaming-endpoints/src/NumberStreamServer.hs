@@ -1,36 +1,26 @@
-{-# LANGUAGE DataKinds       #-}
-{-# LANGUAGE TypeOperators   #-}
-{-# LANGUAGE DeriveGeneric   #-}
+{-# LANGUAGE DataKinds     #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE TypeOperators #-}
 module NumberStreamServer where
 
-import           Prelude hiding (mapM_, mapM, map)
-import           Servant ( JSON, (:>), StreamGenerator, StreamGet
-                         , NewlineFraming, Application, Proxy (Proxy), Server
-                         , serve
-                         , StreamGenerator (StreamGenerator))
+import           Conduit                     (ConduitM, ConduitT,
+                                              ZipSource (..), getZipSource,
+                                              repeatC, runConduit, yield,
+                                              yieldMany, (.|))
+import           Conduit                     (ConduitM, Source, ZipSource (..),
+                                              getZipSource, repeatC, runConduit,
+                                              yield, yieldMany, (.|))
+import           Control.Concurrent          (threadDelay)
 import           Data.Aeson                  (ToJSON)
+import           Data.Conduit.Combinators    (map, mapM, mapM_)
 import           GHC.Generics                (Generic)
-import           Conduit  ( Source, (.|)
-                          , runConduit, yield
-                          , getZipSource
-                          , ConduitM
-                          , ZipSource (..)
-                          , repeatC
-                          , yieldMany
-                          )
-import           Control.Concurrent (threadDelay)
-import           Data.Conduit.Combinators ( mapM
-                                          , mapM_
-                                          , map)
-import           Conduit  ( Source, (.|)
-                          , runConduit, yield
-                          , getZipSource
-                          , ConduitM
-                          , ZipSource (..)
-                          , repeatC
-                          , yieldMany
-                          )
-import           Network.Wai.Middleware.Cors (simpleCors)                 
+import           Network.Wai.Middleware.Cors (simpleCors)
+import           Prelude                     hiding (map, mapM, mapM_)
+import           Servant                     ((:>), Application, JSON,
+                                              NewlineFraming, Proxy (Proxy),
+                                              Server, StreamGenerator,
+                                              StreamGenerator (StreamGenerator),
+                                              StreamGet, serve)
 -- * The data
 
 newtype Number = Number { intVal :: Int }
@@ -64,7 +54,7 @@ streamNumbers = StreamGenerator $ \sendFirst sendRest ->
           f a
       sendData _ g (False, a)=
           g a
-      numbersConduit :: Source IO Int
+      numbersConduit :: ConduitT () Int IO ()
       numbersConduit = yieldMany [1..10]
 
 -- * The application
