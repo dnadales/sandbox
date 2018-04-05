@@ -2,6 +2,7 @@
 module ScrapMyBoilerplate where
 
 import           Control.Lens.Plated
+import           Control.Lens.Setter   (over)
 import           Data.Data
 import           Data.Data.Lens        (uniplate)
 import           Data.Functor.Identity
@@ -76,7 +77,8 @@ raiseSalaries3 :: CompanyAsset -> CompanyAsset
 raiseSalaries3 (Boss n Good s as) = Boss n Good (raiseSalary s) (raiseSalaries3 <$> as)
 raiseSalaries3 b@(Boss _ Bad _ _) = b -- No raise for anything that is under this boss.
 raiseSalaries3 (Employee n s) = Employee n (raiseSalary s)
-raiseSalaries3 x = runIdentity $ traverseCA (pure . raiseSalaries3) x
+raiseSalaries3 x =
+    over traverseCA raiseSalaries3 x
 
 -- And this is what you'd get if you would use `Control.Lens.Plated.plate` from `lens`.
 instance Plated CompanyAsset where
@@ -84,8 +86,9 @@ instance Plated CompanyAsset where
 
 
 raiseSalaries4 :: CompanyAsset -> CompanyAsset
-raiseSalaries4 (Boss n Good s as) = Boss n Good (raiseSalary s) (raiseSalaries3 <$> as)
+raiseSalaries4 (Boss n Good s as) = Boss n Good (raiseSalary s) (raiseSalaries4 <$> as)
 raiseSalaries4 b@(Boss _ Bad _ _) = b -- No raise for anything that is under this boss.
 raiseSalaries4 (Employee n s) = Employee n (raiseSalary s)
-raiseSalaries4 x = runIdentity $ plate (pure . raiseSalaries3) x
+raiseSalaries4 x = -- runIdentity $ plate (pure . raiseSalaries4) x
+    over plate raiseSalaries4 x
 
