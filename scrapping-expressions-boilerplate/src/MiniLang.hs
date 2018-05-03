@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 module MiniLang where
 
+import           Control.Lens        ((^.))
 import           Control.Lens.Fold   ((^..))
 import           Control.Lens.Setter (over)
 import           Data.Data
@@ -22,3 +23,34 @@ reverseT xt        = over uniplate reverseT xt
 
 leavesT :: Data a => Tree a -> [a]
 leavesT xt       = xt ^.. biplate
+
+data Bexp = Stop
+          | Cref Chan
+          | Par Bexp Bexp
+    deriving (Data, Show, Eq)
+
+data Chan = A
+          | B
+          | S Special
+    deriving (Data, Show, Eq)
+
+newtype Special = Special String
+    deriving (Data, Show, Eq)
+
+chans :: Bexp -> [Chan]
+chans be = be ^.. biplate
+
+specials :: Bexp -> [Special]
+specials be = be ^.. biplate
+
+be = Par
+    (Par
+        (Par Stop (Par (Cref A) (Cref (S (Special "Another one ...")))))
+        (Cref A))
+    (Par
+        (Cref B)
+        (Par Stop
+            (Cref (S (Special "I am..."))
+            )))
+
+c0 = S (Special "hello!")
