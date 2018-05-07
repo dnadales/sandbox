@@ -54,3 +54,11 @@ be = Par
             )))
 
 c0 = S (Special "hello!")
+
+data Nested = Nested Bexp deriving (Data)
+
+n0 = Nested be
+
+
+gSpecials :: (Data e) =>  e -> [Special]
+gSpecials be = be ^.. biplate
