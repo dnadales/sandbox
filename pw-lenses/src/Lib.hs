@@ -7,7 +7,7 @@
 -- - https://en.wikibooks.org/wiki/Haskell/Lenses_and_functional_references
 module Lib where
 
-import           Control.Lens
+import           Control.Lens      hiding (Const)
 import           Control.Lens.Fold
 
 someFunc :: IO ()
@@ -224,3 +224,24 @@ previewExample = preview traverse [1..10]
 -- * Lenses at last
 
 -- TODO: Continue here: https://en.wikibooks.org/wiki/Haskell/Lenses_and_functional_references#Lenses_at_last
+
+
+-- Some test
+
+-- Lenses for Sum types with partial record accessors.
+
+data Const
+    = -- | Constructor of Boolean constant.
+      Cbool    { _toBool :: Bool }
+    --   -- | Constructor of Integer constant.
+    | Cint     { _toInteger :: Integer }
+    deriving (Eq, Ord, Read, Show)
+
+makeLenses ''Const
+
+mBool :: Lens' Const (Maybe Bool)
+mBool f (Cbool b) = (\mb ->
+    case mb of
+        Nothing -> Cbool False
+        Just b' -> Cbool b' ) <$> f (Just b)
+mBool f v = const v <$> f Nothing
