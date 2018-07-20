@@ -1,0 +1,18 @@
+* The expression problem
+
+  - It is about defining new interpreters for existing terms, and extending the
+    interpreters for handling an enriched language.
+  - The tagless final approach seems to make it easier to add new data
+    variants.
+  - There is a simple example (page 7) that adds a ~mul~ operation to ~MulSym~.
+
+* The de-serialization problem
+
+  - Communicating terms between computers, or storing them for further
+    processing.
+  - Writing an extensive de-serializer.
+  - ~fromTree :: ExpSYM repr => Tree -> Ether ErrMsg repr~
+  - Ok, we can write this function, no problem.But ... what if we want to
+    interpret the de-serialized times many times, with many different
+    interpreters?
+
