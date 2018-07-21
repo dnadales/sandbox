@@ -43,6 +43,7 @@ instance ExpSYM String where
     neg n = "- (" ++ n ++ ")"
     add n0 n1 = "(" ++ n0 ++ " + " ++ n1 ++ ")"
 
+-- | This function can be used to pick the 'String' instance.
 view :: String -> String
 view = id
 
@@ -52,3 +53,10 @@ view = id
 -- > "(8 + - ((1 + 2)))"
 -- > it :: String
 --
+-- Of course, you could have just typed:
+--
+-- > tf1  :: String
+-- > "(8 + - ((1 + 2)))"
+-- > it :: String
+--
+

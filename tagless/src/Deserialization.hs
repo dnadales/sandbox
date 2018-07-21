@@ -2,6 +2,7 @@
 module Deserialization where
 
 import           Control.Monad (liftM2)
+import           Data.Foldable (traverse_)
 import           Text.Read     (readEither)
 
 import           ExpSYM
@@ -83,3 +84,39 @@ evalAndShowW =
 --------------------------------------------------------------------------------
 -- Solution with "The puzzling interpreter"
 --------------------------------------------------------------------------------
+
+-- | A duplicating interpreter.
+instance (ExpSYM repr, ExpSYM repr') => ExpSYM (repr, repr') where
+    lit x = (lit x, lit x)
+    neg (e0, e1) = (neg e0, neg e1)
+    add (le0, le1) (re0, re1) = (add le0 re0, add le1 re1)
+
+duplicate :: (ExpSYM repr, ExpSYM repr') => (repr, repr') -> (repr, repr')
+duplicate = id
+
+-- Now, how do we use this function to write a function 'thrice' that evals,
+-- prints, and encodes an expression?
+
+thrice :: (Int, (String, Tree)) -> IO () -- Is this the most generic type we can give?
+thrice x0 = do
+    x1 <- dupConsume eval x0
+    x2 <- dupConsume view x1
+    print $ toTree x2
+    where
+      dupConsume ev y = do
+          print (ev y0)
+          return y1
+              where
+                (y0, y1) = duplicate y
+
+-- See https://stackoverflow.com/questions/51457533/typed-tagless-final-interpreters-what-is-the-use-of-duplicate
+thrice' :: (Int, (String, Tree)) -> IO ()
+thrice' (reprInt, (reprStr, reprTree)) = do
+    print $ eval reprInt
+    print $ view reprStr
+    print $ toTree reprTree
+
+printTrice :: IO ()
+printTrice = traverse_ thrice' (fromTree tf1Tree)
+
+-- | Extension of the deserializer using the open recursion style.
