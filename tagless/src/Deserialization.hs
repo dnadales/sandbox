@@ -3,6 +3,7 @@ module Deserialization where
 
 import           Control.Monad (liftM2)
 import           Data.Foldable (traverse_)
+import           Data.Function (fix)
 import           Text.Read     (readEither)
 
 import           ExpSYM
@@ -31,6 +32,7 @@ fromTree :: ExpSYM repr => Tree -> Either ErrMsg repr
 fromTree (Node "Lit" [Leaf n]) = lit <$> readEither n
 fromTree (Node "Neg" [e])      = neg <$> fromTree e
 fromTree (Node "Add" [e0, e1]) = liftM2 add (fromTree e0) (fromTree e1)
+fromTree e                     = Left $ "Invalid tree: " ++ show e
 
 tf1Tree :: Tree
 tf1Tree = toTree tf1
@@ -120,3 +122,14 @@ printTrice :: IO ()
 printTrice = traverse_ thrice' (fromTree tf1Tree)
 
 -- | Extension of the deserializer using the open recursion style.
+fromTreeExt :: (ExpSYM repr)
+            => (Tree -> Either ErrMsg repr) -> (Tree -> Either ErrMsg repr)
+fromTreeExt _    (Node "Lit" [Leaf n]) = lit <$> readEither n
+fromTreeExt self (Node "Neg" [e])      = neg <$> self e
+fromTreeExt self (Node "Add" [e0, e1]) = liftM2 add (self e0) (self e1)
+fromTreeExt _    e                     = Left $ "Invalid tree: " ++ show e
+
+fromTree' :: ExpSYM repr => Tree -> Either ErrMsg repr
+fromTree' = fix fromTreeExt
+
+-- TODO: prove that fromTree' == fromTree
