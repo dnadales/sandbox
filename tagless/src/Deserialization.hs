@@ -133,3 +133,12 @@ fromTree' :: ExpSYM repr => Tree -> Either ErrMsg repr
 fromTree' = fix fromTreeExt
 
 -- TODO: prove that fromTree' == fromTree
+
+-- Run the examples:
+tf1EInt3 :: IO ()
+tf1EInt3 = traverse_ thrice (fromTree' tf1Tree)
+
+tfxEInt3 :: IO ()
+tfxEInt3 = traverse_ thrice (fromTree' wrongTree)
+    where
+      wrongTree = Node "Lit" [Leaf "0", Leaf "2"]
