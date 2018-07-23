@@ -42,3 +42,5 @@ pushNeg e = e Pos
 -- > 5
 -- > it :: Int
 --
+-- Note how in the expression @PushNegF.pushNeg tf1@ we're building a function
+-- from an existing representation!
