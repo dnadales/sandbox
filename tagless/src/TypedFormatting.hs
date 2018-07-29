@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 module TypedFormatting where
 
 import           Prelude hiding ((^))
@@ -65,3 +66,44 @@ instance FormattingSpec FPr where
 --
 sprintf :: FPr String b -> b
 sprintf (FPr f) = f id
+
+newtype FSc a b = FSc (String -> b -> Maybe (a, String))
+
+instance FormattingSpec FSc where
+    -- lit :: String -> FSc a a
+    --                  ~~ String -> a -> Maybe (a, String)
+    lit str = FSc $ \inp a -> (a,) <$> dropPrefix str inp
+        where
+          dropPrefix :: String -> String -> Maybe String
+          dropPrefix ""     from   = Just from
+          dropPrefix (x:xs) (y:ys) | x == y = dropPrefix xs ys
+          dropPrefix _      _      = Nothing
+
+    -- char :: ~~ String -> (Char -> a) -> Maybe (a, String)
+    char = FSc $ \str fca ->
+        case str of
+            []   -> Nothing
+            x:xs -> Just (fca x, str)
+
+    -- int :: String -> (Int -> a) -> Maybe (a, String)
+    int = FSc $ \str fia ->
+         case reads str of
+             [(i, str)] -> Just (fia i, str)
+             _          -> Nothing
+
+    -- (^) :: (String -> c -> Maybe (b, String))
+    --     -> (String -> b -> Maybe (a, String))
+    --     -> (String -> c -> Maybe (a, String))
+    FSc g ^ FSc f = FSc $ \str c -> g str c >>= uncurry (flip f)
+
+-- | Some examples:
+--
+-- >>> sscanf "I got 3 laptops" (lit "I got " ^ int ^ lit " laptops") id
+-- Just 3
+--
+-- >>> sscanf "I got 3 laptops in 1 bag" (lit "I got " ^ int ^ lit " laptops in " ^ int ^ lit " bag") (\i j -> (i, j))
+-- Just (3,1)
+--
+sscanf :: String -> FSc a b -> b -> Maybe a
+sscanf inp (FSc f) = fmap fst . f inp
+
