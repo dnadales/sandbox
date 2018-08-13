@@ -1,0 +1,17 @@
+name:                chimeric-ledgers
+version:             0.1.0.0
+github:              "dnadales/sandbox/chimeric-ledgers"
+license:             BSD3
+author:              "Damian Nadales"
+maintainer:          "damian.nadales@gmail.com"
+copyright:           "Copyright: (c) 2018 Damian Nadales"
+
+dependencies:
+- base >= 4.7 && < 5
+
+library:
+  source-dirs: src
+  dependencies:
+  - containers
+    
+
