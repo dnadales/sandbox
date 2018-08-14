@@ -3,9 +3,12 @@
 {-# LANGUAGE TypeOperators              #-}
 module ChimericLedgers.Transaction where
 
-import           Data.Set  (Set)
-import qualified Data.Set  as Set
-import           Data.Word (Word32)
+import           Data.Set                (Set)
+import qualified Data.Set                as Set
+import           Data.Word               (Word32)
+
+import           ChimericLedgers.Address
+import           ChimericLedgers.Value
 
 data UtxoTx = UtxoTx
     { inputs  :: Set Input
@@ -45,12 +48,6 @@ data Output = Output
 
 ($-->@) :: Value -> Address -> Output
 v $-->@ a = Output a v
-
-newtype Value = Value Word32
-    deriving (Eq, Ord, Num, Show)
-
-newtype Address = Address Word32
-    deriving (Eq, Ord, Num, Show)
 
 -- | Calculate the unspent outputs, by calculating a set of inputs that hold a
 -- reference to the unspent transactions.
