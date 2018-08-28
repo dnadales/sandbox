@@ -19,8 +19,12 @@ import           Test.StateMachine             (Concrete, GenSym,
                                                 Logic (Bot, Top), Reason (Ok),
                                                 StateMachine (StateMachine),
                                                 Symbolic, checkCommandNames,
-                                                forAllCommands, prettyCommands,
-                                                runCommands, (.==))
+                                                forAllCommands,
+                                                forAllParallelCommands,
+                                                prettyCommands,
+                                                prettyParallelCommands,
+                                                runCommands,
+                                                runParallelCommands, (.==))
 import           Test.StateMachine.Types       (distribution, generator,
                                                 initModel, invariant, mock,
                                                 postcondition, precondition,
@@ -31,14 +35,24 @@ import qualified Test.StateMachine.Types.Rank2 as Rank2
 import           Echo                          (Env, input, mkEnv, output)
 
 spec :: Spec
-spec = it "Right echo implementation" $ ioProperty $ do
-    env <- mkEnv
-    return (prop_echoOK env)
+spec = do
+    it "implements echo" $ ioProperty $ do
+        env <- mkEnv
+        return (prop_echoOK env)
+    it "implements echo (parallel)" $ ioProperty $ do
+        env <- mkEnv
+        return (prop_echoParallelOK env)
+
 
 prop_echoOK :: Env -> Property
 prop_echoOK env = forAllCommands echoSM' Nothing $ \cmds -> monadicIO $ do
     (hist, _, res) <- runCommands echoSM' cmds
     prettyCommands echoSM' hist (res === Ok)
+    where echoSM' = echoSM env
+
+prop_echoParallelOK :: Env -> Property
+prop_echoParallelOK env = forAllParallelCommands echoSM' $ \cmds -> monadicIO $ do
+    prettyParallelCommands cmds =<< runParallelCommands echoSM' cmds
     where echoSM' = echoSM env
 
 echoSM :: Env -> StateMachine Model Action IO Response
