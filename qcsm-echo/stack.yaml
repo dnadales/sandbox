@@ -1,0 +1,4 @@
+resolver: lts-12.7
+
+extra-deps:
+- quickcheck-state-machine-0.4.0
