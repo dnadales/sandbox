@@ -9,9 +9,13 @@ copyright:           "Copyright: (c) 2018 Damian Nadales"
 dependencies:
 - base >= 4.7 && < 5
 
+ghc-options:
+  - -Wall
+
 library:
   source-dirs: src
-  dependencies: []
+  dependencies:
+  - stm
 
 tests:
   qcsm-echo-test:
