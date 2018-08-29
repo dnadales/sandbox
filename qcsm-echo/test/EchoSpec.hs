@@ -16,14 +16,15 @@ import           Test.QuickCheck               (Gen, Property, arbitrary,
                                                 ioProperty, oneof, (===))
 import           Test.QuickCheck.Monadic       (monadicIO)
 import           Test.StateMachine             (Concrete, GenSym,
-                                                Logic (Bot, Top), Reason (Ok),
+                                                Logic (Bot, Top), Opaque (..),
+                                                Reason (Ok), Reference (..),
                                                 StateMachine (StateMachine),
                                                 Symbolic, checkCommandNames,
                                                 forAllCommands,
-                                                forAllParallelCommands,
-                                                prettyCommands,
+                                                forAllParallelCommands, genSym,
+                                                opaque, prettyCommands,
                                                 prettyParallelCommands,
-                                                runCommands,
+                                                reference, runCommands,
                                                 runParallelCommands, (.==))
 import           Test.StateMachine.Types       (distribution, generator,
                                                 initModel, invariant, mock,
@@ -36,28 +37,22 @@ import           Echo                          (Env, input, mkEnv, output)
 
 spec :: Spec
 spec = do
-    it "implements echo" $ ioProperty $ do
-        env <- mkEnv
-        return (prop_echoOK env)
-    it "implements echo (parallel)" $ ioProperty $ do
-        env <- mkEnv
-        return (prop_echoParallelOK env)
+    it "implements echo" prop_echoOK
+    it "implements echo (parallel)" prop_echoParallelOK
 
 
-prop_echoOK :: Env -> Property
-prop_echoOK env = forAllCommands echoSM' Nothing $ \cmds -> monadicIO $ do
-    (hist, _, res) <- runCommands echoSM' cmds
-    prettyCommands echoSM' hist (res === Ok)
-    where echoSM' = echoSM env
+prop_echoOK :: Property
+prop_echoOK = forAllCommands echoSM Nothing $ \cmds -> monadicIO $ do
+    (hist, _, res) <- runCommands echoSM cmds
+    prettyCommands echoSM hist (res === Ok)
 
-prop_echoParallelOK :: Env -> Property
-prop_echoParallelOK env = forAllParallelCommands echoSM' $ \cmds -> monadicIO $ do
-    prettyParallelCommands cmds =<< runParallelCommands echoSM' cmds
-    where echoSM' = echoSM env
+prop_echoParallelOK :: Property
+prop_echoParallelOK = forAllParallelCommands echoSM $ \cmds -> monadicIO $ do
+    prettyParallelCommands cmds =<< runParallelCommands echoSM cmds
 
-echoSM :: Env -> StateMachine Model Action IO Response
-echoSM env = StateMachine
-    { initModel = Empty
+echoSM :: StateMachine Model Action IO Response
+echoSM = StateMachine
+    { initModel = Init
     -- ^ At the beginning of time nothing was received.
     , transition = mTransitions
     , precondition = mPreconditions
@@ -73,33 +68,39 @@ echoSM env = StateMachine
     }
     where
       mTransitions :: Model r -> Action r -> Response r -> Model r
-      mTransitions Empty   (In str) _   = Buf str
-      mTransitions (Buf _) Echo     _   = Empty
-      mTransitions Empty   Echo     _   = Empty
+      mTransitions Init        MakeEnv    (MakeEnvAck ref) = Empty ref
+      mTransitions (Empty ref) (In _ str) InAck            = Buf ref str
+      mTransitions (Buf ref _) Echo{}     (Out _)          = Empty ref
       -- TODO: qcsm will match the case below. However we don't expect this to happen!
-      mTransitions (Buf str) (In _)   _ = Buf str -- Dummy response
+      -- mTransitions (Buf str) (In _)   _ = Buf str -- Dummy response
           -- error "This shouldn't happen: input transition with full buffer"
 
       -- | There are no preconditions for this model.
       mPreconditions :: Model Symbolic -> Action Symbolic -> Logic
-      mPreconditions _ _ = Top
+      mPreconditions Init    MakeEnv = Top
+      mPreconditions Init    _       = Bot
+      mPreconditions _       MakeEnv = Bot
+      mPreconditions Empty{} In{}    = Top
+      mPreconditions Buf{}   In{}    = Bot
+      mPreconditions Empty{} Echo{}  = Bot
+      mPreconditions Buf{}   Echo{}  = Top
 
       -- | Post conditions for the system.
       mPostconditions :: Model Concrete -> Action Concrete -> Response Concrete -> Logic
-      mPostconditions Empty     (In _) InAck     = Top
-      mPostconditions (Buf _)   (In _) ErrFull   = Top
-      mPostconditions _         (In _) _         = Bot
-      mPostconditions Empty     Echo   ErrEmpty  = Top
-      mPostconditions Empty     Echo   _         = Bot
-      mPostconditions (Buf str) Echo   (Out out) = str .== out
-      mPostconditions (Buf _)   Echo   _         = Bot
+      mPostconditions _         MakeEnv MakeEnvAck{} = Top
+      mPostconditions Empty{}   In{}   InAck         = Top
+      mPostconditions (Buf _ _) In{}   ErrFull       = Top
+      mPostconditions _         In{}   _             = Bot
+      mPostconditions Empty{}   Echo{} ErrEmpty      = Top
+      mPostconditions Empty{}   Echo{} _             = Bot
+      mPostconditions (Buf _ str) Echo{}  (Out out)  = str .== out
+      mPostconditions (Buf _ _) Echo{}   _           = Bot
 
       -- | Generator for symbolic actions.
       mGenerator :: Model Symbolic -> Gen (Action Symbolic)
-      mGenerator _ =  oneof
-          [ In <$> arbitrary
-          , return Echo
-          ]
+      mGenerator Init        = return MakeEnv
+      mGenerator (Empty ref) = In <$> pure ref <*> arbitrary
+      mGenerator (Buf ref _) = pure (Echo ref)
 
       -- | Trivial shrinker.
       mShrinker :: Action Symbolic -> [Action Symbolic]
@@ -107,43 +108,50 @@ echoSM env = StateMachine
 
       -- | Here we'd do the dispatch to the actual SUT.
       mSemantics :: Action Concrete -> IO (Response Concrete)
-      mSemantics (In str) = do
-          success <- input env str
+      mSemantics MakeEnv = MakeEnvAck . reference . Opaque <$> mkEnv
+      mSemantics (In env str) = do
+          success <- input (opaque env) str
           return $ if success
                    then InAck
                    else ErrFull
-      mSemantics Echo = maybe ErrEmpty Out <$> output env
+      mSemantics (Echo env) = maybe ErrEmpty Out <$> output (opaque env)
 
       -- | What is the mock for?
+
+      -- SA: mock a hack that I hope to remove as soon. It makes it possible to
+      -- have a response that returns two references. It was also part of my
+      -- modelcheck experiment, removed a couple of commits ago...
       mMock :: Model Symbolic -> Action Symbolic -> GenSym (Response Symbolic)
-      mMock Empty (In _)   = return InAck
-      mMock (Buf _) (In _) = return ErrFull
-      mMock Empty Echo     = return ErrEmpty
-      mMock (Buf str) Echo = return (Out str)
+      mMock _ MakeEnv = MakeEnvAck <$> genSym
+      mMock _ In{}    = return InAck
+      mMock _ Echo{}  = return (Out "apa")
 
 deriving instance ToExpr (Model Concrete)
 
 -- | The model contains the last string that was communicated in an input
 -- action.
 data Model (r :: * -> *)
-    = -- | The model hasn't been initialized.
-      Empty
+    = Init
+    | -- | The model hasn't been initialized.
+      Empty (Reference (Opaque Env) r)
     | -- | Last input string (a buffer with size one).
-      Buf String
+      Buf (Reference (Opaque Env) r)String
   deriving (Eq, Show, Generic)
 
 -- | Actions supported by the system.
 data Action (r :: * -> *)
-    = -- | Input a string, which should be echoed later.
-      In String
+    = MakeEnv
+    | -- | Input a string, which should be echoed later.
+      In (Reference (Opaque Env) r)String
       -- | Request a string output.
-    | Echo
+    | Echo (Reference (Opaque Env) r)
   deriving (Show, Generic1, Rank2.Foldable, Rank2.Traversable, Rank2.Functor)
 
 -- | The system gives a single type of output response, containing a string
 -- with the input previously received.
 data Response (r :: * -> *)
-    = -- | Input acknowledgment.
+    = MakeEnvAck (Reference (Opaque Env) r)
+    | -- | Input acknowledgment.
       InAck
       -- | The previous action wasn't an input, so there is no input to echo.
       -- This is: the buffer is empty.
