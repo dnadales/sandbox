@@ -8,6 +8,7 @@ import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar,
 
 data Env = Env
     { _buf :: TVar (Maybe String) }
+  deriving Eq
 
 -- | Create a new environment.
 mkEnv :: IO Env
