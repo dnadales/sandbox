@@ -1,12 +1,10 @@
--- | WRONG Echo implementation using mutable variables. Used to see whether the
--- state-machine specification would detect the error.
+-- | Echo implementation using mutable variables.
 
 module EchoMVar (mkEchoMVar) where
 
 import           Control.Concurrent.MVar (MVar, newMVar, putMVar, swapMVar,
-                                          takeMVar, tryPutMVar, tryTakeMVar)
+                                          takeMVar)
 import           Control.Monad           (void)
-import           Data.Maybe              (fromMaybe)
 
 import           Echo                    (Echo, input, output, reset)
 

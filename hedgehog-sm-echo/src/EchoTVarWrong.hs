@@ -3,7 +3,7 @@
 module EchoTVarWrong (mkEchoTVarWrong) where
 
 import           Control.Concurrent.STM      (atomically)
-import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar,
+import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVarIO,
                                               writeTVar)
 
 import           Echo                        (Echo, input, output, reset)
@@ -20,14 +20,14 @@ instance Echo EchoTVar where
     -- | Input a string. Returns 'True' iff the buffer was empty and the given
     -- string was added to it.
     input (EchoTVar mBuf) str = do
-        res <- atomically $ readTVar mBuf
+        res <- readTVarIO mBuf
         case res of
             Nothing -> atomically $ writeTVar mBuf (Just str) >> return True
             Just _  -> return False
 
     -- | Output the buffer contents.
     output (EchoTVar mBuf) =  do
-        res <- atomically $ readTVar mBuf
+        res <- readTVarIO mBuf
         atomically $ writeTVar mBuf Nothing
         return res
 

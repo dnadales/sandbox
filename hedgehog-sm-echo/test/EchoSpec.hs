@@ -82,8 +82,8 @@ cOutput env =
 
       update :: State v -> Out v -> Var (Maybe String) v -> State v
       update _ _ _ = Empty
-      -- ^ No matter what the initial state is, the 'Empty' action always leave
-      -- the buffer empty.
+      -- ^ No matter what the initial state is, the 'Empty' action always
+      -- leaves the buffer empty.
 
       post :: State Concrete -> State Concrete -> Out Concrete -> Maybe String -> Test ()
       post Empty _ _ _          = success
@@ -115,12 +115,12 @@ prop_echo_par mkEcho = property $ do
     liftIO $ reset env
     test $ executeParallel initialState actions
 
-
 main :: IO Bool
-main = checkParallel $ Group "EchoSpec" [ ("prop_echoTVar", prop_echo mkEchoTVar)
-                                        , ("prop_echoTVarPar", prop_echo_par mkEchoTVar)
-                                        , ("prop_echoMVar", prop_echo mkEchoMVar)
-                                        , ("prop_echoMVarPar", prop_echo_par mkEchoMVar)
-                                        , ("prop_echoTVarWrong", prop_echo mkEchoTVarWrong)
-                                        , ("prop_echoTVarParWrong", prop_echo_par mkEchoTVarWrong)
-                                        ]
+main = checkParallel $ Group "EchoSpec"
+    [ ("prop_echoTVar", prop_echo mkEchoTVar)
+    , ("prop_echoTVarPar", prop_echo_par mkEchoTVar)
+    , ("prop_echoMVar", prop_echo mkEchoMVar)
+    , ("prop_echoMVarPar", prop_echo_par mkEchoMVar)
+    , ("prop_echoTVarWrong", prop_echo mkEchoTVarWrong)
+    , ("prop_echoTVarParWrong", prop_echo_par mkEchoTVarWrong)
+    ]
