@@ -1,35 +1,14 @@
 -- | Echo API.
 
-module Echo (Env, input, mkEnv, output, reset) where
+module Echo (Echo, input, output, reset) where
 
-import           Control.Concurrent.STM      (atomically)
-import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar,
-                                              writeTVar)
+class Echo e where
+    -- | Input a string. Returns 'True' iff the buffer was empty and the given
+    -- string was added to it.
+    input :: e -> String -> IO Bool
 
-newtype Env = Env
-    { _buf :: TVar (Maybe String) }
-  deriving Eq
+    -- | Output the buffer contents (if any).
+    output :: e -> IO (Maybe String)
 
--- | Create a new environment.
-mkEnv :: IO Env
-mkEnv = Env <$> newTVarIO Nothing
-
--- | Reset the environment
-reset :: Env -> IO ()
-reset (Env mBuf) = atomically $ writeTVar mBuf Nothing
-
--- | Input a string. Returns 'True' iff the buffer was empty and the given
--- string was added to it.
-input :: Env -> String -> IO Bool
-input (Env mBuf) str = atomically $ do
-    res <- readTVar mBuf
-    case res of
-        Nothing -> writeTVar mBuf (Just str) >> return True
-        Just _  -> return False
-
--- | Output the buffer contents.
-output :: Env -> IO (Maybe String)
-output (Env mBuf) = atomically $ do
-    res <- readTVar mBuf
-    writeTVar mBuf Nothing
-    return res
+    -- | Reset the echo state.
+    reset :: e -> IO ()
