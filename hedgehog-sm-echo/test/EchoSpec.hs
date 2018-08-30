@@ -18,6 +18,7 @@ import qualified Hedgehog.Range         as Range
 import           Echo                   (Echo, input, output, reset)
 import           EchoMVar               (mkEchoMVar)
 import           EchoTVar               (mkEchoTVar)
+import           EchoTVarWrong          (mkEchoTVarWrong)
 
 data State (v :: * -> *) = Empty | Buf String
     deriving (Eq, Ord, Show)
@@ -120,4 +121,6 @@ main = checkParallel $ Group "EchoSpec" [ ("prop_echoTVar", prop_echo mkEchoTVar
                                         , ("prop_echoTVarPar", prop_echo_par mkEchoTVar)
                                         , ("prop_echoMVar", prop_echo mkEchoMVar)
                                         , ("prop_echoMVarPar", prop_echo_par mkEchoMVar)
+                                        , ("prop_echoTVarWrong", prop_echo mkEchoTVarWrong)
+                                        , ("prop_echoTVarParWrong", prop_echo_par mkEchoTVarWrong)
                                         ]
