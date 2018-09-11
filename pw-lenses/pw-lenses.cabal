@@ -18,12 +18,14 @@ library
   exposed-modules:     Lib
                      , Config
                      , Coercions
+                     , CompositionalZooming
 -- TODO: remove this line and the line below:
-                     , PWPhantomsHolidays 
+--                     , PWPhantomsHolidays 
   build-depends:       base >= 4.7 && < 5
                      , lens
                      , mtl
                      , containers
+                     , bifunctors
   default-language:    Haskell2010
 
 executable pw-lenses-exe
