@@ -19,6 +19,9 @@ library
                      , FunWithFunctionalDependencies
                      , Injection
                      , Identifiable
+                     , Interpreters.Interpreter0
+                     , Interpreters.Interpreter1
+                     , Interpreters.Interpreter2                                          
   build-depends:       base >= 4.7 && < 5
   default-language:    Haskell2010
 
