@@ -253,7 +253,6 @@ zoomAccount embedErr aId@(wId, aIx) aUpdate = zoomWallet embedErr' wId wUpdate
     err :: Update e Wallet a
     err = throwError . embedErr . UnknownAccId $ aId
 
-
 zoomAddress
   :: forall e a
   .  (UnknownAddr -> e)
@@ -272,8 +271,6 @@ zoomAddress embedErr addrId@(accId, addrIx) addrUpdate =
     err :: Update e Account a
     err = throwError . embedErr . UnknownAddrId $ addrId
 
-
-
 -- ** Tying everything together
 
 -- Let's write the definition from the introduction.
@@ -285,5 +282,3 @@ setUnused addrId =
     -- addrUpdate = wrap $ \(addrStr, _) -> UpdateResult (pure ((), (addrStr, False)))
     -- The above is not needed because 'Update' is a 'MonadState'!!!
     addrUpdate = modify $ \(addr, _isUsed) -> (addr, False)
-
-

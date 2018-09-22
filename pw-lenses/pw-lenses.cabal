@@ -19,6 +19,7 @@ library
                      , Config
                      , Coercions
                      , CompositionalZooming
+                     , WalletDB
 -- TODO: remove this line and the line below:
 --                     , PWPhantomsHolidays 
   build-depends:       base >= 4.7 && < 5

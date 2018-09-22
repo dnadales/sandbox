@@ -18,7 +18,8 @@ ghc-options:
 
 library:
   source-dirs: src
-  dependencies: []
+  dependencies:
+  - validation
 
 tests:
   sequence-based-pbt-test:
