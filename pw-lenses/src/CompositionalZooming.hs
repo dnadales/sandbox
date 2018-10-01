@@ -208,6 +208,12 @@ type WalletId = Int
 type AccId = (WalletId, AccIx)
 type AddrId = (AccId, AddrIx)
 
+-- Note that
+--
+-- > AddrId = ((WalletId, AccIx), AddrIx)
+--
+-- So this means that you have all the information you need in the 'AddrId'.
+
 -- *** A hierarchy of errors
 
 data UnknownWallet = UnknownWalletId WalletId
