@@ -1,10 +1,15 @@
+{-# LANGUAGE AllowAmbiguousTypes        #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeFamilies               #-}
+
 module Rule.Delegation.Scheduling where
 
-import           Control.Lens             (makeLenses, (%~))
-import           Control.Monad.State      (State)
+import           Control.Lens             (makeLenses, (%~), (^.))
+import           Data.Either              (partitionEithers)
+import           Data.Foldable            (traverse_)
 import           Data.Function            ((&))
 import           Data.Set                 (Set)
 import qualified Data.Set                 as Set
@@ -73,28 +78,66 @@ instance STS SDELEG where
     deriving (Show)
 
   rules =
-    [ Rule [Predicate $ \env _st cert ->
-             e env <. depoch cert]
-           (Extension . Transition $ \env st cert ->
-             st & (eks %~ Set.insert (depoch cert, fst . dwho $ cert))
-                . (sds %~ ((s env + d env, dwho cert):))
-           )
+    [RuleExtension $ \env st cert ->  do
+        e env <. depoch cert
+        return $
+          st & (eks %~ Set.insert (depoch cert, fst . dwho $ cert))
+             . (sds %~ ((s env + d env, dwho cert):))
     ]
     where
       e0 <. e1
-        | e0 < e1 = Passed
-        | otherwise = Failed (DelegPastEpoch e0 e1)
+        | e0 < e1 = Right ()
+        | otherwise = Left (DelegPastEpoch e0 e1)
 
--- |
-nextState :: DSState -> DSEnv -> DSState
-nextState = undefined
 
-sdelegTG :: DSEnv -> DSState -> Gen (Cert, DSState)
-sdelegTG env st = undefined
+    -- [ Rule [Predicate $ \env _st cert ->
+    --          e env <. depoch cert]
+    --        (Extension . Transition $ \env st cert ->
+    --          st & (eks %~ Set.insert (depoch cert, fst . dwho $ cert))
+    --             . (sds %~ ((s env + d env, dwho cert):))
+    --        )
+    -- ]
+
+-- | Compute the next state of an STS.
+nextState
+  :: forall sts . STS sts
+  => Environment sts
+  -> State sts
+  -> Signal sts
+  -> State sts
+nextState env st s = undefined
+-- res
+--   where
+--     -- TODO: we have to decide what to do if no rule apply. Since we're testing
+--     -- the generator, we might want this to fail (with an appropriate error
+--     -- message).
+--     (_, res:_) = partitionEithers (nextStateVia <$> rules)
+--     nextStateVia :: Rule sts -> Either (PredicateFailure sts) (State sts)
+--     nextStateVia = undefined
+--     -- nextStateVia (Rule antecedents consequent) =
+--     --   traverse_ holds antecedents >> return (apply consequent)
+--     holds :: Antecedent sts -> Either (PredicateFailure sts) ()
+--     holds (SubTrans subEnv stGet rule) = undefined
+--     apply :: Consequent sts -> State sts
+--     apply = undefined
+
+
+-- To apply the generators we could have a function like:
+
+-- | Generate a signal that satisfies the given rule.
+sigGen
+  :: STS sts
+  => Rule sts
+  -> Environment sts
+  -> State sts
+  -> Gen (Signal sts)
+sigGen = undefined
+
+--sdelegTG :: DSEnv -> DSState -> Gen Cert -- Was 'Gen (Cert, DSState)' we don't need to generate the state randomly
+-- sdelegTG env st = undefined
   -- .. generate some stuff
+
+  -- .. tricky part: how do we call the generator of a rule in the premise?
+
   -- .. apply the transition to validate the `Cert` and get `DSState`!
--- do
---   vk_s <- oneOf (k env)
---   e_d <- largerThan e
---   (e_d, vk_s) `notIn` (eks st)
 

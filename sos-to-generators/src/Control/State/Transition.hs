@@ -35,8 +35,8 @@ initialRules
   => [Rule a]
 initialRules = filter isInitial rules
   where
-    isInitial (Rule _ (Base _)) = True
-    isInitial _                 = False
+    isInitial (RuleBase _)      = True
+    isInitial (RuleExtension _) = False
 
 -- | The union of the components of the system available for making judgments.
 type JudgmentContext sts = (Environment sts, State sts, Signal sts)
@@ -47,7 +47,7 @@ data Transition sts where
     :: (   Environment sts
         -> State sts
         -> Signal sts
-        -> State sts
+        -> Either (PredicateFailure sts) (State sts)
        )
     -> Transition sts
 
@@ -57,11 +57,13 @@ transition
   -> Environment sts
   -> State sts
   -> Signal sts
-  -> State sts
+  -> Either (PredicateFailure sts) (State sts)
 transition (Transition f) = f
 
 -- | Embed one STS within another.
 class (STS sub, STS super) => Embed sub super where
+  envLens :: Lens' (Environment super) (Environment sub)
+
   -- | Extract the state of the subsystem as a component of the super-system.
   stateLens :: Lens' (State super) (State sub)
 
@@ -69,37 +71,20 @@ data PredicateResult sts
   = Passed
   | Failed (PredicateFailure sts)
 
--- | The antecedent to a transition rule.
-data Antecedent sts where
+-- | A rule within a transition system.
+data Rule sts where
+  RuleBase
+    :: (  Environment sts
+        -> Either (PredicateFailure sts) (State sts)
+       )
+    -> Rule sts
 
-  -- | This rule is predicated upon a transition under a (sub-)system.
-  SubTrans
-    :: Embed sub sts
-    => Getter (JudgmentContext sts) (Environment sub)
-    -> Getter (JudgmentContext sts) (Signal sub)
-    -> Rule sub
-    -> Antecedent sts
-
-  Predicate
+  RuleExtension
     :: (   Environment sts
         -> State sts
         -> Signal sts
-        -> PredicateResult sts
+        -> Either (PredicateFailure sts) (State sts)
        )
-    -> Antecedent sts
-
--- | The consequent to a transition rule.
-data Consequent sts where
-  -- | The consequent describes a valid base state.
-  Base :: State sts -> Consequent sts
-  -- | The consequent describes a valid transition between two states.
-  Extension :: Transition sts -> Consequent sts
-
--- | A rule within a transition system.
-data Rule sts where
-  Rule
-    :: [Antecedent sts]
-    -> Consequent sts
     -> Rule sts
 
 --------------------------------------------------------------------------------
