@@ -1,0 +1,4 @@
+resolver: lts-12.7
+
+extra-deps:
+- QuickCheck-GenT-0.2.0
