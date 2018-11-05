@@ -21,7 +21,7 @@ import           Test.QuickCheck             (Arbitrary, Gen, arbitrary,
 import           Control.State.Transition
 import           Control.State.TransitionGen
 
-newtype Epoch = Epoch Natural -- TODO: should be a natural number
+newtype Epoch = Epoch Natural
   deriving (Show, Eq, Ord, Num)
 
 newtype Slot = Slot Natural
@@ -120,6 +120,7 @@ sdelegGen env st = do
   let dcert = DCert e_d vk_s vk_d
       nextSt = st & (eks %~ Set.insert (dcert ^. epoch,  dcert ^. src))
                   . (sds %~ ((s env + d env, dwho dcert):))
+      -- Replace the line above by nextSt = st and watch it fail!
   return $ Right (dcert, nextSt)
 
 sdelegsGen :: Gen (Trace DSState DCert SDelegFailure)
@@ -131,7 +132,12 @@ instance Arbitrary (Trace DSState DCert SDelegFailure) where
   shrink (Trace (Left _) _) = [] -- We cannot shrink a failed trace.
   shrink (Trace (Right (_, _)) []) = [] -- We cannot shrink a trace of one element.
   shrink (Trace (Right (_, _)) ((prevSt, prevSig):xs)) =
-    prevTrace:shrink prevTrace
+    -- The most aggressive shrinking should go at the beginning, so that the
+    -- property can be checked in a smaller state. That is why `prevTrace` is
+    -- put at the end.
+    --
+    -- TODO: make this O(n).
+    shrink prevTrace ++ [prevTrace]
     where
       prevTrace = Trace (Right (prevSig, prevSt)) xs
 
