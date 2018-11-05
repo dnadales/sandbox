@@ -16,7 +16,7 @@ import           Data.Set                    (Set)
 import qualified Data.Set                    as Set
 import           Numeric.Natural             (Natural)
 import           Test.QuickCheck             (Arbitrary, Gen, arbitrary,
-                                              elements, shrink, suchThat)
+                                              elements, oneof, shrink, suchThat)
 
 import           Control.State.Transition
 import           Control.State.TransitionGen
@@ -111,8 +111,8 @@ data SDelegFailure
   = DelegPastEpoch { currEpoch :: Epoch, givenEpoch :: Epoch }
   deriving (Show)
 
-sdelegGen :: SigGen DSEnv DSState DCert SDelegFailure
-sdelegGen env st = do
+sdeleg :: SigGen DSEnv DSState DCert SDelegFailure
+sdeleg env st = do
   vk_s <- elements . Set.toList . k $ env
   vk_d <- arbitrary
   -- TODO: here we might need to be smarter about the way we determine the epoch.
@@ -123,21 +123,26 @@ sdelegGen env st = do
       -- Replace the line above by nextSt = st and watch it fail!
   return $ Right (dcert, nextSt)
 
+sdelegRules :: [Gen (Trace DSState DCert SDelegFailure)]
+sdelegRules = [sdelegsGen]
+
 sdelegsGen :: Gen (Trace DSState DCert SDelegFailure)
-sdelegsGen = sigsGen someDSEnv initialDSState [sdelegGen]
+sdelegsGen = sigsGen someDSEnv initialDSState [sdeleg]
 
 instance Arbitrary (Trace DSState DCert SDelegFailure) where
   arbitrary = sdelegsGen
 
-  shrink (Trace (Left _) _) = [] -- We cannot shrink a failed trace.
-  shrink (Trace (Right (_, _)) []) = [] -- We cannot shrink a trace of one element.
-  shrink (Trace (Right (_, _)) ((prevSt, prevSig):xs)) =
+  shrink (Trace (Left _) _)
+    = [] -- We cannot shrink a failed trace.
+  shrink (Trace (Right (_, _)) [])
+    = [] -- We cannot shrink a trace of one element.
+  shrink (Trace (Right (_, _)) ((prevSt, prevSig):xs))
     -- The most aggressive shrinking should go at the beginning, so that the
-    -- property can be checked in a smaller state. That is why `prevTrace` is
-    -- put at the end.
+    -- property can be checked with the smallest trace possible. That is why
+    -- `prevTrace` is put at the end.
     --
     -- TODO: make this O(n).
-    shrink prevTrace ++ [prevTrace]
+    = shrink prevTrace ++ [prevTrace]
     where
       prevTrace = Trace (Right (prevSig, prevSt)) xs
 
@@ -147,3 +152,27 @@ instance Arbitrary (Trace DSState DCert SDelegFailure) where
 -- >>> (stSigs, fStep) <- generate sdelegsGen
 --
 
+--------------------------------------------------------------------------------
+-- SDELEGS transition system
+--------------------------------------------------------------------------------
+
+sdelegsBase :: SigGen DSEnv DSState [DCert] SDelegFailure
+sdelegsBase _ st = return $ Right ([], st)
+
+sdelegsInd :: SigGen DSEnv DSState [DCert] SDelegFailure
+sdelegsInd env st = do
+  t0 <- oneof $ (\r -> r env st) <$> sdelegsRules
+  -- We might want to make a Monad out of SigGen to factor out this pattern.
+  case t0 of
+    Left _ ->
+      return t0
+    Right (cs, st') -> do
+      t1 <- sdeleg env st'
+      case t1 of
+        Left err ->
+          return (Left err)
+        Right (c, st'')->
+          -- TODO: try to make this more efficient.
+          return $ Right (cs ++ [c], st'')
+
+sdelegsRules = [sdelegsBase, sdelegsInd]
