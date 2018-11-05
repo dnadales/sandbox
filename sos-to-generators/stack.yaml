@@ -2,3 +2,4 @@ resolver: lts-12.7
 
 extra-deps:
 - QuickCheck-GenT-0.2.0
+- Unique-0.4.7.5

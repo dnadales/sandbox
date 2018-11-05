@@ -116,12 +116,11 @@ sdelegGen env st = do
   vk_s <- elements . Set.toList . k $ env
   vk_d <- arbitrary
   -- TODO: here we might need to be smarter about the way we determine the epoch.
-  e_d <- arbitrary `suchThat` (\e_d -> (e_d, vk_s) `Set.notMember` (st ^. eks) && (e env) < e_d)
+  e_d <- arbitrary `suchThat` (\e_d -> (e_d, vk_s) `Set.notMember` (st ^. eks) && e env < e_d)
   let dcert = DCert e_d vk_s vk_d
-      nextSt = st & (eks %~ Set.insert (dcert ^. epoch,  dcert ^. src))
-                  . (sds %~ ((s env + d env, dwho dcert):))
+      nextSt = st & (sds %~ ((s env + d env, dwho dcert):))
+                  . (eks %~ Set.insert (dcert ^. epoch,  dcert ^. src))
   return $ Right (dcert, nextSt)
-
 
 sdelegsGen :: Gen ([(DSState, DCert)], Either SDelegFailure (DCert, DSState))
 sdelegsGen = sigsGen someDSEnv initialDSState [sdelegGen]
