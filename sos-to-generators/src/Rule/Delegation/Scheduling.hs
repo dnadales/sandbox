@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes        #-}
+{-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
@@ -14,9 +15,8 @@ import           Data.Function               ((&))
 import           Data.Set                    (Set)
 import qualified Data.Set                    as Set
 import           Numeric.Natural             (Natural)
-import           QuickCheck.GenT             (GenT, elements, liftGen, listOf)
 import           Test.QuickCheck             (Arbitrary, Gen, arbitrary,
-                                              suchThat)
+                                              elements, shrink, suchThat)
 
 import           Control.State.Transition
 import           Control.State.TransitionGen
@@ -118,12 +118,22 @@ sdelegGen env st = do
   -- TODO: here we might need to be smarter about the way we determine the epoch.
   e_d <- arbitrary `suchThat` (\e_d -> (e_d, vk_s) `Set.notMember` (st ^. eks) && e env < e_d)
   let dcert = DCert e_d vk_s vk_d
-      nextSt = st & (sds %~ ((s env + d env, dwho dcert):))
-                  . (eks %~ Set.insert (dcert ^. epoch,  dcert ^. src))
+      nextSt = st & (eks %~ Set.insert (dcert ^. epoch,  dcert ^. src))
+                  . (sds %~ ((s env + d env, dwho dcert):))
   return $ Right (dcert, nextSt)
 
-sdelegsGen :: Gen ([(DSState, DCert)], Either SDelegFailure (DCert, DSState))
+sdelegsGen :: Gen (Trace DSState DCert SDelegFailure)
 sdelegsGen = sigsGen someDSEnv initialDSState [sdelegGen]
+
+instance Arbitrary (Trace DSState DCert SDelegFailure) where
+  arbitrary = sdelegsGen
+
+  shrink (Trace (Left _) _) = [] -- We cannot shrink a failed trace.
+  shrink (Trace (Right (_, _)) []) = [] -- We cannot shrink a trace of one element.
+  shrink (Trace (Right (_, _)) ((prevSt, prevSig):xs)) =
+    prevTrace:shrink prevTrace
+    where
+      prevTrace = Trace (Right (prevSig, prevSt)) xs
 
 -- Try this out
 --

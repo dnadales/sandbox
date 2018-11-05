@@ -8,6 +8,8 @@ copyright:           "Copyright: (c) 2018 Damian Nadales"
 
 dependencies:
 - base >= 4.7 && < 5
+- QuickCheck
+- lens
 
 ghc-options:
   - -Wall
@@ -20,10 +22,7 @@ library:
   source-dirs: src
   dependencies:
   - containers
-  - QuickCheck-GenT
-  - QuickCheck
   - mtl
-  - lens
 
 tests:
   lib-project-test:
@@ -36,6 +35,5 @@ tests:
     dependencies:
     - hspec
     - Unique
-    - QuickCheck
     - sos-to-generators
 

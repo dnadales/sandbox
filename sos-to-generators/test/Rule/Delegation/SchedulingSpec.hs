@@ -1,9 +1,10 @@
 module Rule.Delegation.SchedulingSpec where
 
 import           Control.Arrow               ((&&&))
+import           Control.Lens                (makeLenses, (%~), (^.))
 import           Data.List.Unique            (allUnique)
 import           Test.Hspec                  (Spec, it, pending)
-import           Test.QuickCheck             (forAll)
+import           Test.QuickCheck             (property)
 
 import           Control.State.TransitionGen
 import           Rule.Delegation.Scheduling
@@ -11,12 +12,12 @@ import           Rule.Delegation.Scheduling
 spec :: Spec
 spec =
   it "One-delegation per-key per epoch" $
-  forAll sdelegsGen oneDelegPerKeyPerEpoch
+  property oneDelegPerKeyPerEpoch
 
 
 oneDelegPerKeyPerEpoch
-  :: ([(DSState, DCert)], Either SDelegFailure (DCert, DSState))
+  :: Trace DSState DCert SDelegFailure
   -> Bool
-oneDelegPerKeyPerEpoch (_, Left _)  = False
-oneDelegPerKeyPerEpoch (stSigs, Right (c, _)) =
-  allUnique $ fmap (_epoch &&& _src) (c:(sigs stSigs))
+oneDelegPerKeyPerEpoch tr = case tr ^. traceHead of
+  Left _       -> error "TODO: think about what's the meaning of this ..."
+  Right (c, _) -> allUnique $ fmap (_epoch &&& _src) (c:(traceSigs tr))
