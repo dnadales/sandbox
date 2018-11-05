@@ -163,7 +163,6 @@ sdelegsBase _ st = return ([], st)
 sdelegsInd :: SigGen DSEnv DSState [DCert] SDelegFailure
 sdelegsInd env st = do
   (cs, st') <- apply env st sdelegsRules
-  -- We might want to make a Monad out of SigGen to factor out this pattern.
   (c, st'') <- sdeleg env st'
   -- TODO: try to make this more efficient.
   return (cs ++ [c], st'')
