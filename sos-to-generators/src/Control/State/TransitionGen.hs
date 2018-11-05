@@ -3,11 +3,13 @@
 {-# LANGUAGE TemplateHaskell     #-}
 module Control.State.TransitionGen where
 
-import           Control.Lens    (makeLenses, (%~), (^.))
-import           Test.QuickCheck (Gen, elements, frequency)
+import           Control.Lens         (makeLenses, (%~), (^.))
+import           Control.Monad.Except (ExceptT (ExceptT), lift, runExceptT)
+import           Test.QuickCheck      (Gen, elements, frequency, oneof)
 
 type SigGen env st sig failure
-  = env -> st -> Gen (Either failure (sig, st))
+--  = env -> st -> Gen (Either failure (sig, st))
+  = env -> st -> ExceptT failure Gen (sig, st)
 
 data Trace st sig failure
   = Trace { _traceHead :: Either failure (sig, st)
@@ -44,5 +46,16 @@ sigsGen env st gs = go [] st
                     ]
 
     nextSig :: st -> Gen (Either failure (sig, st))
-    nextSig stCurr = traverse (\f -> f env stCurr) gs >>= elements
+    nextSig stCurr = runExceptT (apply env stCurr gs)
 
+-- | Try and apply the rules in sequence till one can be applied.
+apply :: env -> st -> [SigGen env st sig failure] -> ExceptT failure Gen (sig, st)
+apply _ _ [] = lift (elements [])
+apply env st [g] =
+  g env st
+apply env st (g:gs) = do
+  let gRes = runExceptT (g env st)
+  res <- lift gRes
+  case res of
+    Left _              -> apply env st gs
+    Right (sig, stNext) -> return (sig, stNext)

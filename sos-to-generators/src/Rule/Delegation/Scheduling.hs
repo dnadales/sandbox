@@ -9,6 +9,7 @@
 module Rule.Delegation.Scheduling where
 
 import           Control.Lens                (makeLenses, (%~), (^.))
+import           Control.Monad.Except        (ExceptT, lift)
 import           Data.Either                 (partitionEithers)
 import           Data.Foldable               (traverse_)
 import           Data.Function               ((&))
@@ -113,15 +114,15 @@ data SDelegFailure
 
 sdeleg :: SigGen DSEnv DSState DCert SDelegFailure
 sdeleg env st = do
-  vk_s <- elements . Set.toList . k $ env
-  vk_d <- arbitrary
+  vk_s <- lift . elements . Set.toList . k $ env
+  vk_d <- lift arbitrary
   -- TODO: here we might need to be smarter about the way we determine the epoch.
-  e_d <- arbitrary `suchThat` (\e_d -> (e_d, vk_s) `Set.notMember` (st ^. eks) && e env < e_d)
+  e_d <- lift $ arbitrary `suchThat` (\e_d -> (e_d, vk_s) `Set.notMember` (st ^. eks) && e env < e_d)
   let dcert = DCert e_d vk_s vk_d
       nextSt = st & (eks %~ Set.insert (dcert ^. epoch,  dcert ^. src))
                   . (sds %~ ((s env + d env, dwho dcert):))
       -- Replace the line above by nextSt = st and watch it fail!
-  return $ Right (dcert, nextSt)
+  return (dcert, nextSt)
 
 sdelegRules :: [Gen (Trace DSState DCert SDelegFailure)]
 sdelegRules = [sdelegsGen]
@@ -157,22 +158,14 @@ instance Arbitrary (Trace DSState DCert SDelegFailure) where
 --------------------------------------------------------------------------------
 
 sdelegsBase :: SigGen DSEnv DSState [DCert] SDelegFailure
-sdelegsBase _ st = return $ Right ([], st)
+sdelegsBase _ st = return ([], st)
 
 sdelegsInd :: SigGen DSEnv DSState [DCert] SDelegFailure
 sdelegsInd env st = do
-  t0 <- oneof $ (\r -> r env st) <$> sdelegsRules
+  (cs, st') <- apply env st sdelegsRules
   -- We might want to make a Monad out of SigGen to factor out this pattern.
-  case t0 of
-    Left _ ->
-      return t0
-    Right (cs, st') -> do
-      t1 <- sdeleg env st'
-      case t1 of
-        Left err ->
-          return (Left err)
-        Right (c, st'')->
-          -- TODO: try to make this more efficient.
-          return $ Right (cs ++ [c], st'')
+  (c, st'') <- sdeleg env st'
+  -- TODO: try to make this more efficient.
+  return (cs ++ [c], st'')
 
 sdelegsRules = [sdelegsBase, sdelegsInd]
