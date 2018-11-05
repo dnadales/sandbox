@@ -7,17 +7,19 @@
 
 module Rule.Delegation.Scheduling where
 
-import           Control.Lens             (makeLenses, (%~), (^.))
-import           Data.Either              (partitionEithers)
-import           Data.Foldable            (traverse_)
-import           Data.Function            ((&))
-import           Data.Set                 (Set)
-import qualified Data.Set                 as Set
-import           Numeric.Natural          (Natural)
-import           QuickCheck.GenT          (GenT, elements, liftGen, listOf)
-import           Test.QuickCheck          (Gen)
+import           Control.Lens                (makeLenses, (%~), (^.))
+import           Data.Either                 (partitionEithers)
+import           Data.Foldable               (traverse_)
+import           Data.Function               ((&))
+import           Data.Set                    (Set)
+import qualified Data.Set                    as Set
+import           Numeric.Natural             (Natural)
+import           QuickCheck.GenT             (GenT, elements, liftGen, listOf)
+import           Test.QuickCheck             (Arbitrary, Gen, arbitrary,
+                                              suchThat)
 
 import           Control.State.Transition
+import           Control.State.TransitionGen
 
 newtype Epoch = Epoch Natural -- TODO: should be a natural number
   deriving (Show, Eq, Ord, Num)
@@ -34,110 +36,99 @@ newtype SKey = SKey Owner deriving (Show, Eq, Ord)
 -- |Verification Key.
 newtype VKey = VKey Owner deriving (Show, Eq, Ord)
 
+arbitraryNat :: Gen Natural
+arbitraryNat  = fromInteger . abs <$> arbitrary
+
+instance Arbitrary Epoch where
+  arbitrary = Epoch <$> arbitraryNat
+
+instance Arbitrary Owner where
+  arbitrary = Owner <$> arbitraryNat
+
+instance Arbitrary SKey where
+  arbitrary = SKey <$> arbitrary
+
+instance Arbitrary VKey where
+  arbitrary = VKey <$> arbitrary
+
 newtype VKeyGen = VKeyGen VKey
   deriving (Show, Eq, Ord)
 
-data Cert
-  = Cert { depoch :: Epoch
-         , dwho   :: (VKeyGen, VKey)
+data DCert
+  = DCert { _epoch :: Epoch
+         , _src    :: VKeyGen
+         , _dst    :: VKey
          }
   deriving (Show, Eq)
 
+makeLenses ''DCert
+
+dwho :: DCert -> (VKeyGen, VKey)
+dwho c = (c ^. src, c ^. dst)
+
 -- | Delegation scheduling environment
 data DSEnv
-  = DSEnv { k :: Set VKeyGen
-          , e :: Epoch
-          , s :: Slot
-          , d :: Slot -- TODO: replace this by `SlotCount`
-          }
+  = DSEnv
+    { k :: Set VKeyGen
+    , e :: Epoch
+    , s :: Slot
+    , d :: Slot -- TODO: replace this by `SlotCount`
+    }
+  deriving (Show)
 
 -- | Delegation scheduling state
 data DSState
-  = DSState { _sds :: [(Slot, (VKeyGen, VKey))]
-            , _eks :: Set (Epoch, VKeyGen)
-            }
+  = DSState
+    { _sds :: [(Slot, (VKeyGen, VKey))]
+    , _eks :: Set (Epoch, VKeyGen)
+    }
+  deriving (Show)
 makeLenses ''DSState
+
+-- | Some environment to test (put this in some 'Examples' module)
+someDSEnv :: DSEnv
+someDSEnv
+  = DSEnv
+    { k = Set.fromList . fmap (VKeyGen . VKey . Owner) $ [0, 1, 2, 3, 5]
+    , e = Epoch 0
+    , s = Slot 0
+    , d = 10
+    }
+
+initialDSState :: DSState
+initialDSState
+  = DSState
+    { _sds = []
+    , _eks = Set.empty
+    }
 
 
 --------------------------------------------------------------------------------
 -- SDELEG transition system
 --------------------------------------------------------------------------------
 
--- | Tag for the SDELEG transition system
-data SDELEG
+data SDelegFailure
+  = DelegPastEpoch { currEpoch :: Epoch, givenEpoch :: Epoch }
+  deriving (Show)
 
-instance STS SDELEG where
-  type Environment SDELEG = DSEnv
-
-  type State SDELEG = DSState
-
-  type Signal SDELEG = Cert
-
-  data PredicateFailure SDELEG
-    = DelegPastEpoch { currEpoch :: Epoch, givenEpoch :: Epoch }
-    deriving (Show)
-
-  rules =
-    [RuleExtension $ \env st cert ->  do
-        e env <. depoch cert
-        return $
-          st & (eks %~ Set.insert (depoch cert, fst . dwho $ cert))
-             . (sds %~ ((s env + d env, dwho cert):))
-    ]
-    where
-      e0 <. e1
-        | e0 < e1 = Right ()
-        | otherwise = Left (DelegPastEpoch e0 e1)
+sdelegGen :: SigGen DSEnv DSState DCert SDelegFailure
+sdelegGen env st = do
+  vk_s <- elements . Set.toList . k $ env
+  vk_d <- arbitrary
+  -- TODO: here we might need to be smarter about the way we determine the epoch.
+  e_d <- arbitrary `suchThat` (\e_d -> (e_d, vk_s) `Set.notMember` (st ^. eks) && (e env) < e_d)
+  let dcert = DCert e_d vk_s vk_d
+      nextSt = st & (eks %~ Set.insert (dcert ^. epoch,  dcert ^. src))
+                  . (sds %~ ((s env + d env, dwho dcert):))
+  return $ Right (dcert, nextSt)
 
 
-    -- [ Rule [Predicate $ \env _st cert ->
-    --          e env <. depoch cert]
-    --        (Extension . Transition $ \env st cert ->
-    --          st & (eks %~ Set.insert (depoch cert, fst . dwho $ cert))
-    --             . (sds %~ ((s env + d env, dwho cert):))
-    --        )
-    -- ]
+sdelegsGen :: Gen ([(DSState, DCert)], Either SDelegFailure (DCert, DSState))
+sdelegsGen = sigsGen someDSEnv initialDSState [sdelegGen]
 
--- | Compute the next state of an STS.
-nextState
-  :: forall sts . STS sts
-  => Environment sts
-  -> State sts
-  -> Signal sts
-  -> State sts
-nextState env st s = undefined
--- res
---   where
---     -- TODO: we have to decide what to do if no rule apply. Since we're testing
---     -- the generator, we might want this to fail (with an appropriate error
---     -- message).
---     (_, res:_) = partitionEithers (nextStateVia <$> rules)
---     nextStateVia :: Rule sts -> Either (PredicateFailure sts) (State sts)
---     nextStateVia = undefined
---     -- nextStateVia (Rule antecedents consequent) =
---     --   traverse_ holds antecedents >> return (apply consequent)
---     holds :: Antecedent sts -> Either (PredicateFailure sts) ()
---     holds (SubTrans subEnv stGet rule) = undefined
---     apply :: Consequent sts -> State sts
---     apply = undefined
-
-
--- To apply the generators we could have a function like:
-
--- | Generate a signal that satisfies the given rule.
-sigGen
-  :: STS sts
-  => Rule sts
-  -> Environment sts
-  -> State sts
-  -> Gen (Signal sts)
-sigGen = undefined
-
---sdelegTG :: DSEnv -> DSState -> Gen Cert -- Was 'Gen (Cert, DSState)' we don't need to generate the state randomly
--- sdelegTG env st = undefined
-  -- .. generate some stuff
-
-  -- .. tricky part: how do we call the generator of a rule in the premise?
-
-  -- .. apply the transition to validate the `Cert` and get `DSState`!
+-- Try this out
+--
+-- >>> import Test.QuickCheck
+-- >>> (stSigs, fStep) <- generate sdelegsGen
+--
 
