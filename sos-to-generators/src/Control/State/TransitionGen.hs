@@ -3,59 +3,76 @@
 {-# LANGUAGE TemplateHaskell     #-}
 module Control.State.TransitionGen where
 
-import           Control.Lens         (makeLenses, (%~), (^.))
-import           Control.Monad.Except (ExceptT (ExceptT), lift, runExceptT)
-import           Test.QuickCheck      (Gen, elements, frequency, oneof)
+import           Control.Lens              (makeLenses, (%~), (^.))
+import           Control.Monad.Except      (ExceptT (ExceptT), lift, runExceptT)
+import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
+import           Data.Maybe                (catMaybes)
+import           Test.QuickCheck           (Gen, elements, frequency, oneof)
 
-type SigGen env st sig failure
---  = env -> st -> Gen (Either failure (sig, st))
-  = env -> st -> ExceptT failure Gen (sig, st)
+-- | Every transition rule defines a signal generator.
+type SigGen env st sig
+--  = env -> st -> ExceptT failure Gen (sig, st)
+  = env -> st -> MaybeT Gen (sig, st)
 
-data Trace st sig failure
-  = Trace { _traceHead :: Either failure (sig, st)
-          , _traceTail :: [(st, sig)]
-          -- ^ Trace's tail: the newest states are placed first.
-          }
+-- | Successful trace.
+data Trace st sig
+  = Trace
+    { _traceTrans     :: [(st, sig)]
+    -- ^ Trace's transitions. Newest first.
+    , _traceInitState :: st
+    }
   deriving (Eq, Show)
 
 makeLenses ''Trace
 
-traceSigs :: Trace st sig failure -> [sig]
-traceSigs = fmap snd . _traceTail
+traceSigs :: Trace st sig -> [sig]
+traceSigs = fmap snd . _traceTrans
 
-traceStates :: Trace st sig failure -> [st]
-traceStates = fmap fst . _traceTail
+traceStates :: Trace st sig -> [st]
+traceStates tr = fmap fst (tr ^. traceTrans) ++ [tr ^. traceInitState]
+
+-- | Failing trace. We consider minimal failing traces, which must have a
+-- non-failing prefix.
+data FTrace st sig failure
+  = FTrace
+  { _tracePrefix  :: Trace st sig
+  , _traceFailure :: failure
+  }
+  deriving Show
 
 sigsGen
   :: forall env st sig failure
   .  env
   -> st
-  -> [SigGen env st sig failure]
-  -> Gen (Trace st sig failure)
+  -> [SigGen env st sig]
+  -> Gen (Trace st sig)
 sigsGen env st gs = go [] st
   where
-    go :: [(st, sig)] -> st -> Gen (Trace st sig failure)
+    go :: [(st, sig)] -> st -> Gen (Trace st sig)
     go acc stPrev = do
-      eSig <- nextSig stPrev
-      case eSig of
-        Left _ ->
-          return $ Trace eSig acc
-        Right (sig, stNext) ->
-          frequency [ (5, return $ Trace eSig acc)
+      mSigSt <- nextSig stPrev
+      case mSigSt of
+        Nothing ->
+          return $ Trace acc stPrev
+        Just (sig, stNext) ->
+          frequency [ (5, return $ Trace acc stPrev)
                     , (95, go ((stPrev, sig):acc) stNext)
                     ]
 
-    nextSig :: st -> Gen (Either failure (sig, st))
-    nextSig stCurr = runExceptT (apply env stCurr gs)
+    nextSig :: st -> Gen (Maybe (sig, st))
+    nextSig stCurr =
+      runMaybeT (apply env stCurr gs)
 
--- | Try and apply the rules in sequence till one can be applied.
-apply :: env -> st -> [SigGen env st sig failure] -> ExceptT failure Gen (sig, st)
-apply _ _ [] = lift (elements [])
-apply env st [g] =
-  g env st
-apply env st (g:gs) = do
-  let gRes = runExceptT (g env st)
-  res <- lift gRes
-  case res of
-    Left _              -> apply env st gs
-    Right (sig, stNext) -> return (sig, stNext)
+-- | Try and apply one of the rules (non-deterministically).
+apply
+  :: env
+  -> st
+  -> [SigGen env st sig]
+  -> MaybeT Gen (sig, st)
+apply env st rs = do
+  sigStates <- lift $ traverse (\r -> runMaybeT (r env st)) rs
+  case catMaybes sigStates of
+    [] -> -- No rules could be applied.
+      MaybeT (return Nothing)
+    xs -> -- Pick one of the resulting states.
+      lift (elements xs)

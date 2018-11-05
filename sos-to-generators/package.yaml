@@ -23,6 +23,7 @@ library:
   dependencies:
   - containers
   - mtl
+  - transformers
 
 tests:
   lib-project-test:

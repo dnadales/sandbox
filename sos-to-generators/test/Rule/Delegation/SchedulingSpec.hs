@@ -16,8 +16,7 @@ spec =
 
 
 oneDelegPerKeyPerEpoch
-  :: Trace DSState DCert SDelegFailure
+  :: Trace DSState DCert
   -> Bool
-oneDelegPerKeyPerEpoch tr = case tr ^. traceHead of
-  Left _       -> error "TODO: think about what's the meaning of this ..."
-  Right (c, _) -> allUnique $ fmap (_epoch &&& _src) (c:(traceSigs tr))
+oneDelegPerKeyPerEpoch tr =
+  allUnique $ fmap (_epoch &&& _src) (traceSigs tr)

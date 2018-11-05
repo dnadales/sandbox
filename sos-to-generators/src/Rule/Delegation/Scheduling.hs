@@ -103,16 +103,11 @@ initialDSState
     , _eks = Set.empty
     }
 
-
 --------------------------------------------------------------------------------
 -- SDELEG transition system
 --------------------------------------------------------------------------------
 
-data SDelegFailure
-  = DelegPastEpoch { currEpoch :: Epoch, givenEpoch :: Epoch }
-  deriving (Show)
-
-sdeleg :: SigGen DSEnv DSState DCert SDelegFailure
+sdeleg :: SigGen DSEnv DSState DCert
 sdeleg env st = do
   vk_s <- lift . elements . Set.toList . k $ env
   vk_d <- lift arbitrary
@@ -122,22 +117,22 @@ sdeleg env st = do
       nextSt = st & (eks %~ Set.insert (dcert ^. epoch,  dcert ^. src))
                   . (sds %~ ((s env + d env, dwho dcert):))
       -- Replace the line above by nextSt = st and watch it fail!
+      --
+      -- nextSt = st
   return (dcert, nextSt)
 
-sdelegRules :: [Gen (Trace DSState DCert SDelegFailure)]
+sdelegRules :: [Gen (Trace DSState DCert)]
 sdelegRules = [sdelegsGen]
 
-sdelegsGen :: Gen (Trace DSState DCert SDelegFailure)
+sdelegsGen :: Gen (Trace DSState DCert)
 sdelegsGen = sigsGen someDSEnv initialDSState [sdeleg]
 
-instance Arbitrary (Trace DSState DCert SDelegFailure) where
+instance Arbitrary (Trace DSState DCert) where
   arbitrary = sdelegsGen
 
-  shrink (Trace (Left _) _)
-    = [] -- We cannot shrink a failed trace.
-  shrink (Trace (Right (_, _)) [])
-    = [] -- We cannot shrink a trace of one element.
-  shrink (Trace (Right (_, _)) ((prevSt, prevSig):xs))
+  shrink (Trace [] st)
+    = [] -- Nothing left to shrink.
+  shrink (Trace ((prevSt, prevSig):xs) st)
     -- The most aggressive shrinking should go at the beginning, so that the
     -- property can be checked with the smallest trace possible. That is why
     -- `prevTrace` is put at the end.
@@ -145,7 +140,7 @@ instance Arbitrary (Trace DSState DCert SDelegFailure) where
     -- TODO: make this O(n).
     = shrink prevTrace ++ [prevTrace]
     where
-      prevTrace = Trace (Right (prevSig, prevSt)) xs
+      prevTrace = Trace xs st
 
 -- Try this out
 --
@@ -157,10 +152,10 @@ instance Arbitrary (Trace DSState DCert SDelegFailure) where
 -- SDELEGS transition system
 --------------------------------------------------------------------------------
 
-sdelegsBase :: SigGen DSEnv DSState [DCert] SDelegFailure
+sdelegsBase :: SigGen DSEnv DSState [DCert]
 sdelegsBase _ st = return ([], st)
 
-sdelegsInd :: SigGen DSEnv DSState [DCert] SDelegFailure
+sdelegsInd :: SigGen DSEnv DSState [DCert]
 sdelegsInd env st = do
   (cs, st') <- apply env st sdelegsRules
   (c, st'') <- sdeleg env st'
@@ -168,3 +163,11 @@ sdelegsInd env st = do
   return (cs ++ [c], st'')
 
 sdelegsRules = [sdelegsBase, sdelegsInd]
+
+--------------------------------------------------------------------------------
+-- Adding failures to SDELEG
+--------------------------------------------------------------------------------
+
+data SDelegFailure
+  = DelegPastEpoch { currEpoch :: Epoch, givenEpoch :: Epoch }
+  deriving (Show)
