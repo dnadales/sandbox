@@ -35,7 +35,7 @@ delegCompose env st = do
   (_, st'') <- preApply () (st ^. activation) active adelegs
   let
     sds' = [ sd | sd@(s', _) <- st' ^. sds
-                , env ^. s - env ^. d <= s'
+                , env ^. s - ((env ^. d) `min` (env ^. s)) <= s'
                 , s' <= env ^. s + env ^. d ]
     eks' = Set.filter ((<= env ^. e) . fst) (st' ^. eks)
     nextSt = st & (activation .~ st'')

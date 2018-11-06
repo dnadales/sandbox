@@ -2,15 +2,19 @@
 {-# LANGUAGE TemplateHaskell   #-}
 module Rule.Delegation.InterfaceSpec where
 
+import           Control.Arrow               ((&&&))
 import           Control.Lens                (makeLenses, (%~), (.~), (^.))
 import           Control.Monad.Trans         (lift)
 import           Data.Function               ((&))
+import qualified Data.Map                    as Map
 import           Test.Hspec                  (Spec, it, pending)
-import           Test.QuickCheck             (Arbitrary, Gen, arbitrary,
-                                              property, shrink)
+import           Test.QuickCheck             (Arbitrary, Gen, Property,
+                                              arbitrary, property, shrink,
+                                              (===))
 
 import           Control.State.TransitionGen
 import           Rule.Common
+import           Rule.Delegation.Activation
 import           Rule.Delegation.Interface
 import           Rule.Delegation.Scheduling
 
@@ -25,8 +29,12 @@ makeLenses ''DummyBlock
 
 delegationMapCorrectlyUpdated
   :: Trace (DSEnv, DIState) DummyBlock
-  -> Bool
-delegationMapCorrectlyUpdated _ = True
+  -> Property
+delegationMapCorrectlyUpdated tr =
+  lastSt ^. activation . dms === Map.fromList (fmap (_src &&& _dst) allCerts)
+  where lastSt = snd $ head $ traceStates tr
+        allCerts :: [DCert]
+        allCerts = concatMap _certs (traceSigs tr)
 
 dummyBlock :: SigGen () (DSEnv, DIState) DummyBlock
 dummyBlock () (dsEnv, diState) = do
@@ -39,10 +47,12 @@ dummyBlock () (dsEnv, diState) = do
   return (nextBlock, (nextEnv, nextDiState))
 
 dummyBlocksGen :: Gen (Trace (DSEnv, DIState) DummyBlock)
-dummyBlocksGen = sigsGen () (someDSEnv, initialDIState) [dummyBlock]
+dummyBlocksGen = sigsGen () (someDSEnv {_d = 0}, initialDIState) [dummyBlock]
 
 instance Arbitrary (Trace (DSEnv, DIState) DummyBlock) where
   arbitrary = dummyBlocksGen
+
+  shrink = traceShrink
 
 spec :: Spec
 spec = it "The delegation map is correctly updated" $

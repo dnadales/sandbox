@@ -70,6 +70,7 @@ adeleg = [adelegAdd, adelegNoOp]
 
 adelegsBase :: PreSigGen () DState [PDSig] [DSig]
 adelegsBase _ st [] = return ([], st)
+adelegsBase _ _ _   = mzero
 
 adelegsInd :: PreSigGen () DState [PDSig] [DSig]
 adelegsInd env st pcs = do

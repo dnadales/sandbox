@@ -12,6 +12,7 @@ dependencies:
 - lens
 - mtl
 - transformers
+- containers
   
 ghc-options:
   - -Wall
@@ -22,8 +23,7 @@ ghc-options:
 
 library:
   source-dirs: src
-  dependencies:
-  - containers
+  dependencies: []
 
 tests:
   lib-project-test:
