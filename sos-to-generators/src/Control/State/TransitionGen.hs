@@ -1,6 +1,8 @@
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TemplateHaskell       #-}
 module Control.State.TransitionGen where
 
 import           Control.Lens              (makeLenses, (%~), (^.))
@@ -9,9 +11,10 @@ import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import           Data.Maybe                (catMaybes)
 import           Test.QuickCheck           (Gen, elements, frequency, oneof)
 
--- | Every transition rule defines a signal generator.
+-- | Every transition rule defines a signal generator. If in the given state
+-- and environment no transition is possible (i.e. there exists no signal that
+-- triggers a valid rule), then the generator can return @Nothing@.
 type SigGen env st sig
---  = env -> st -> ExceptT failure Gen (sig, st)
   = env -> st -> MaybeT Gen (sig, st)
 
 -- | Successful trace.
@@ -76,3 +79,26 @@ apply env st rs = do
       MaybeT (return Nothing)
     xs -> -- Pick one of the resulting states.
       lift (elements xs)
+
+-- | A signal generator that accepts extra information for generating the
+-- signal.
+type PreSigGen env st preSig sig
+  = env -> st -> preSig -> MaybeT Gen (sig, st)
+
+class PreSig preSig sig where
+  any :: preSig
+
+  asPreSig :: sig -> preSig
+
+instance PreSig preSig sig => PreSig [preSig] [sig] where
+  any = []
+
+  asPreSig = fmap asPreSig
+
+preApply
+  :: env
+  -> st
+  -> preSig
+  -> [PreSigGen env st preSig sig]
+  -> MaybeT Gen (sig, st)
+preApply = undefined

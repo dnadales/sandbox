@@ -9,51 +9,18 @@
 module Rule.Delegation.Scheduling where
 
 import           Control.Lens                (makeLenses, (%~), (^.))
-import           Control.Monad.Except        (ExceptT, lift)
+import           Control.Monad.Except        (ExceptT)
+import           Control.Monad.Trans         (lift)
 import           Data.Either                 (partitionEithers)
 import           Data.Foldable               (traverse_)
 import           Data.Function               ((&))
 import           Data.Set                    (Set)
 import qualified Data.Set                    as Set
-import           Numeric.Natural             (Natural)
 import           Test.QuickCheck             (Arbitrary, Gen, arbitrary,
                                               elements, oneof, shrink, suchThat)
 
-import           Control.State.Transition
 import           Control.State.TransitionGen
-
-newtype Epoch = Epoch Natural
-  deriving (Show, Eq, Ord, Num)
-
-newtype Slot = Slot Natural
-  deriving (Show, Eq, Ord, Num)
-
--- |Representation of the owner of key pair.
-newtype Owner = Owner Natural deriving (Show, Eq, Ord)
-
--- |Signing Key.
-newtype SKey = SKey Owner deriving (Show, Eq, Ord)
-
--- |Verification Key.
-newtype VKey = VKey Owner deriving (Show, Eq, Ord)
-
-arbitraryNat :: Gen Natural
-arbitraryNat  = fromInteger . abs <$> arbitrary
-
-instance Arbitrary Epoch where
-  arbitrary = Epoch <$> arbitraryNat
-
-instance Arbitrary Owner where
-  arbitrary = Owner <$> arbitraryNat
-
-instance Arbitrary SKey where
-  arbitrary = SKey <$> arbitrary
-
-instance Arbitrary VKey where
-  arbitrary = VKey <$> arbitrary
-
-newtype VKeyGen = VKeyGen VKey
-  deriving (Show, Eq, Ord)
+import           Rule.Common
 
 data DCert
   = DCert { _epoch :: Epoch
@@ -75,7 +42,7 @@ data DSEnv
     , s :: Slot
     , d :: Slot -- TODO: replace this by `SlotCount`
     }
-  deriving (Show)
+  deriving (Show, Eq)
 
 -- | Delegation scheduling state
 data DSState
@@ -83,7 +50,7 @@ data DSState
     { _sds :: [(Slot, (VKeyGen, VKey))]
     , _eks :: Set (Epoch, VKeyGen)
     }
-  deriving (Show)
+  deriving (Show, Eq)
 makeLenses ''DSState
 
 -- | Some environment to test (put this in some 'Examples' module)
@@ -112,7 +79,9 @@ sdeleg env st = do
   vk_s <- lift . elements . Set.toList . k $ env
   vk_d <- lift arbitrary
   -- TODO: here we might need to be smarter about the way we determine the epoch.
-  e_d <- lift $ arbitrary `suchThat` (\e_d -> (e_d, vk_s) `Set.notMember` (st ^. eks) && e env < e_d)
+  e_d <- lift $ arbitrary
+         `suchThat`
+         (\e_d -> (e_d, vk_s) `Set.notMember` (st ^. eks) && e env < e_d)
   let dcert = DCert e_d vk_s vk_d
       nextSt = st & (eks %~ Set.insert (dcert ^. epoch,  dcert ^. src))
                   . (sds %~ ((s env + d env, dwho dcert):))
@@ -157,12 +126,12 @@ sdelegsBase _ st = return ([], st)
 
 sdelegsInd :: SigGen DSEnv DSState [DCert]
 sdelegsInd env st = do
-  (cs, st') <- apply env st sdelegsRules
+  (cs, st') <- apply env st sdelegs
   (c, st'') <- sdeleg env st'
   -- TODO: try to make this more efficient.
   return (cs ++ [c], st'')
 
-sdelegsRules = [sdelegsBase, sdelegsInd]
+sdelegs = [sdelegsBase, sdelegsInd]
 
 --------------------------------------------------------------------------------
 -- Adding failures to SDELEG
