@@ -102,17 +102,7 @@ sdelegsGen = sigsGen someDSEnv initialDSState [sdeleg]
 instance Arbitrary (Trace DSState DCert) where
   arbitrary = sdelegsGen
 
-  shrink (Trace [] st)
-    = [] -- Nothing left to shrink.
-  shrink (Trace ((prevSt, prevSig):xs) st)
-    -- The most aggressive shrinking should go at the beginning, so that the
-    -- property can be checked with the smallest trace possible. That is why
-    -- `prevTrace` is put at the end.
-    --
-    -- TODO: make this O(n).
-    = shrink prevTrace ++ [prevTrace]
-    where
-      prevTrace = Trace xs st
+  shrink = traceShrink
 
 -- Try this out
 --

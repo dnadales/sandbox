@@ -109,3 +109,17 @@ preApply
 -- TODO: we might want to remove SigGen in favor of PreSigGen.
 preApply env st preSig rs = tryApply (env, st, preSig) (fmap uncurry3 rs)
   where uncurry3 f (a, b, c) = f a b c
+
+traceShrink :: Trace st sig -> [Trace st sig]
+traceShrink (Trace [] st)
+  = [] -- Nothing left to shrink.
+traceShrink (Trace ((prevSt, prevSig):xs) st)
+    -- The most aggressive shrinking should go at the beginning, so that the
+    -- property can be checked with the smallest trace possible. That is why
+    -- `prevTrace` is put at the end.
+    --
+    -- TODO: make this O(n).
+    = traceShrink prevTrace ++ [prevTrace]
+    where
+      prevTrace = Trace xs st
+

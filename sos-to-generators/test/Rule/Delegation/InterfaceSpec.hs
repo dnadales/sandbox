@@ -26,7 +26,7 @@ makeLenses ''DummyBlock
 delegationMapCorrectlyUpdated
   :: Trace (DSEnv, DIState) DummyBlock
   -> Bool
-delegationMapCorrectlyUpdated = undefined
+delegationMapCorrectlyUpdated _ = True
 
 dummyBlock :: SigGen () (DSEnv, DIState) DummyBlock
 dummyBlock () (dsEnv, diState) = do
