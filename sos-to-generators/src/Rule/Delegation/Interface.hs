@@ -5,6 +5,7 @@ module Rule.Delegation.Interface where
 
 import           Control.Lens                (makeLenses, (.~), (^.))
 import           Data.Function               ((&))
+import qualified Data.Set                    as Set
 
 import           Control.State.TransitionGen
 import           Rule.Common
@@ -26,11 +27,14 @@ delegCompose :: SigGen DIEnv DIState [DCert]
 delegCompose env st = do
   (cs, st' ) <-  apply env (st ^. scheduling) sdelegs
   let active :: [PDSig]
-      active = undefined
+      active = [asPreSig d | d@(s', _) <- st' ^. sds
+                           , s' <= s env ]
   (_, st'') <- preApply () (st ^. activation) active adelegs
   let
-    sds' = undefined (st' ^. sds) -- define domain restriction
-    eks' = undefined (st' ^. eks)
+    sds' = [ sd | sd@(s', _) <- st' ^. sds
+                , s env - d env <= s'
+                , s' <= s env + d env ]
+    eks' = Set.filter ((<= e env) . fst) (st' ^. eks)
     nextSt = st & (activation .~ st'')
                 . (scheduling . sds .~ sds')
                 . (scheduling . eks .~ eks')

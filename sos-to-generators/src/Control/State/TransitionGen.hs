@@ -101,4 +101,11 @@ preApply
   -> preSig
   -> [PreSigGen env st preSig sig]
   -> MaybeT Gen (sig, st)
-preApply = undefined
+-- TODO: we might want to remove SigGen in favor of PreSigGen.
+preApply env st preSig rs = do
+  sigStates <- lift $ traverse (\r -> runMaybeT (r env st preSig)) rs
+  case catMaybes sigStates of
+    [] -> -- No rules could be applied.
+      MaybeT (return Nothing)
+    xs -> -- Pick one of the resulting states.
+      lift (elements xs)
