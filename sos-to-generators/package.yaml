@@ -10,7 +10,9 @@ dependencies:
 - base >= 4.7 && < 5
 - QuickCheck
 - lens
-
+- mtl
+- transformers
+  
 ghc-options:
   - -Wall
   - -Wcompat
@@ -22,8 +24,6 @@ library:
   source-dirs: src
   dependencies:
   - containers
-  - mtl
-  - transformers
 
 tests:
   lib-project-test:

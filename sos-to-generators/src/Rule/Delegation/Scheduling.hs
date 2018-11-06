@@ -17,7 +17,8 @@ import           Data.Function               ((&))
 import           Data.Set                    (Set)
 import qualified Data.Set                    as Set
 import           Test.QuickCheck             (Arbitrary, Gen, arbitrary,
-                                              elements, oneof, shrink, suchThat)
+                                              elements, frequency, oneof,
+                                              shrink, suchThat)
 
 import           Control.State.TransitionGen
 import           Rule.Common
@@ -37,12 +38,14 @@ dwho c = (c ^. src, c ^. dst)
 -- | Delegation scheduling environment
 data DSEnv
   = DSEnv
-    { k :: Set VKeyGen
-    , e :: Epoch
-    , s :: Slot
-    , d :: Slot -- TODO: replace this by `SlotCount`
+    { _k :: Set VKeyGen
+    , _e :: Epoch
+    , _s :: Slot
+    , _d :: Slot -- TODO: replace this by `SlotCount`
     }
   deriving (Show, Eq)
+
+makeLenses ''DSEnv
 
 -- | Delegation scheduling state
 data DSState
@@ -57,10 +60,10 @@ makeLenses ''DSState
 someDSEnv :: DSEnv
 someDSEnv
   = DSEnv
-    { k = Set.fromList . fmap (VKeyGen . VKey . Owner) $ [0, 1, 2, 3, 5]
-    , e = Epoch 0
-    , s = Slot 0
-    , d = 10
+    { _k = Set.fromList . fmap (VKeyGen . VKey . Owner) $ [0, 1, 2, 3, 5]
+    , _e = Epoch 0
+    , _s = Slot 0
+    , _d = 10
     }
 
 initialDSState :: DSState
@@ -76,15 +79,15 @@ initialDSState
 
 sdeleg :: SigGen DSEnv DSState DCert
 sdeleg env st = do
-  vk_s <- lift . elements . Set.toList . k $ env
+  vk_s <- lift . elements . Set.toList . _k $ env
   vk_d <- lift arbitrary
   -- TODO: here we might need to be smarter about the way we determine the epoch.
   e_d <- lift $ arbitrary
          `suchThat`
-         (\e_d -> (e_d, vk_s) `Set.notMember` (st ^. eks) && e env < e_d)
+         (\e_d -> (e_d, vk_s) `Set.notMember` (st ^. eks) && env ^. e < e_d)
   let dcert = DCert e_d vk_s vk_d
       nextSt = st & (eks %~ Set.insert (dcert ^. epoch,  dcert ^. src))
-                  . (sds %~ ((s env + d env, dwho dcert):))
+                  . (sds %~ ((env ^. s + env ^. d, dwho dcert):))
       -- Replace the line above by nextSt = st and watch it fail!
       --
       -- nextSt = st
@@ -114,7 +117,10 @@ instance Arbitrary (Trace DSState DCert) where
 -- Try this out
 --
 -- >>> import Test.QuickCheck
--- >>> (stSigs, fStep) <- generate sdelegsGen
+-- >>> import Control.Lens
+-- >>> tr <- generate sdelegsGen
+-- >>> tr ^. traceInitState
+-- >>> tr ^. traceTrans
 --
 
 --------------------------------------------------------------------------------
@@ -132,6 +138,9 @@ sdelegsInd env st = do
   return (cs ++ [c], st'')
 
 sdelegs = [sdelegsBase, sdelegsInd]
+
+sdelegssGen :: Gen (Trace DSState [DCert])
+sdelegssGen = sigsGen someDSEnv initialDSState sdelegs
 
 --------------------------------------------------------------------------------
 -- Adding failures to SDELEG

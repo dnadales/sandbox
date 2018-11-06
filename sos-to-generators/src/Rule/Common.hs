@@ -11,6 +11,8 @@ newtype Epoch = Epoch Natural
 newtype Slot = Slot Natural
   deriving (Show, Eq, Ord, Num)
 
+slotInc :: Natural -> Slot -> Slot
+slotInc n (Slot s) = Slot (n + s)
 -- |Representation of the owner of key pair.
 newtype Owner = Owner Natural deriving (Show, Eq, Ord)
 

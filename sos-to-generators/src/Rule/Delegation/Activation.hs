@@ -37,6 +37,8 @@ data DState
 
 makeLenses ''DState
 
+initialDState = DState Map.empty Map.empty
+
 adelegAdd :: PreSigGen () DState PDSig DSig
 adelegAdd () st (ms, (mvk_s, mvk_d)) = do
   s <- maybe (lift arbitrary) return ms

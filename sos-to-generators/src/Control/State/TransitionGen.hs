@@ -6,10 +6,12 @@
 module Control.State.TransitionGen where
 
 import           Control.Lens              (makeLenses, (%~), (^.))
+import           Control.Monad             (mplus, mzero)
 import           Control.Monad.Except      (ExceptT (ExceptT), lift, runExceptT)
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import           Data.Maybe                (catMaybes)
-import           Test.QuickCheck           (Gen, elements, frequency, oneof)
+import           Test.QuickCheck           (Gen, choose, elements, frequency,
+                                            oneof)
 
 -- | Every transition rule defines a signal generator. If in the given state
 -- and environment no transition is possible (i.e. there exists no signal that
@@ -72,13 +74,16 @@ apply
   -> st
   -> [SigGen env st sig]
   -> MaybeT Gen (sig, st)
-apply env st rs = do
-  sigStates <- lift $ traverse (\r -> runMaybeT (r env st)) rs
-  case catMaybes sigStates of
-    [] -> -- No rules could be applied.
-      MaybeT (return Nothing)
-    xs -> -- Pick one of the resulting states.
-      lift (elements xs)
+apply env st rs = tryApply (env, st) (fmap uncurry rs)
+
+tryApply
+  :: a
+  -> [a -> MaybeT Gen r]
+  -> MaybeT Gen r
+tryApply a [] = mzero
+tryApply a rs = do
+  i <- lift $ choose (0, length rs - 1)
+  (rs !! i) a `mplus` tryApply a (take i rs ++ drop (i+1) rs)
 
 -- | A signal generator that accepts extra information for generating the
 -- signal.
@@ -102,10 +107,5 @@ preApply
   -> [PreSigGen env st preSig sig]
   -> MaybeT Gen (sig, st)
 -- TODO: we might want to remove SigGen in favor of PreSigGen.
-preApply env st preSig rs = do
-  sigStates <- lift $ traverse (\r -> runMaybeT (r env st preSig)) rs
-  case catMaybes sigStates of
-    [] -> -- No rules could be applied.
-      MaybeT (return Nothing)
-    xs -> -- Pick one of the resulting states.
-      lift (elements xs)
+preApply env st preSig rs = tryApply (env, st, preSig) (fmap uncurry3 rs)
+  where uncurry3 f (a, b, c) = f a b c
