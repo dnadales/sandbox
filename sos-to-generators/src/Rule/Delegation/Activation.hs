@@ -51,8 +51,8 @@ adelegAdd () st (ms, (mvk_s, mvk_d)) = do
   --
   unless (maybe True (< s) (Map.lookup vk_s (st ^. dws))) mzero
   let nextSt = st
-             & (dms %~ Map.insert vk_s vk_d)
              & (dws %~ Map.insert vk_s s)
+             . (dms %~ Map.insert vk_s vk_d)
       sig = (s, (vk_s, vk_d))
   return (sig, nextSt)
 
@@ -90,4 +90,4 @@ instance PreSig PDSig DSig where
   asPreSig ps = (Just *** (Just *** Just)) ps
 
 adelegs :: [PreSigGen () DState [PDSig] [DSig]]
-adelegs = [adelegsBase]
+adelegs = [adelegsBase, adelegsInd]

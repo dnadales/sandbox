@@ -31,10 +31,17 @@ delegationMapCorrectlyUpdated
   :: Trace (DSEnv, DIState) DummyBlock
   -> Property
 delegationMapCorrectlyUpdated tr =
-  lastSt ^. activation . dms === Map.fromList (fmap (_src &&& _dst) allCerts)
+ lastSt ^. activation . dms === Map.fromList (fmap (_src &&& _dst) allActiveCerts)
   where lastSt = snd $ head $ traceStates tr
-        allCerts :: [DCert]
-        allCerts = concatMap _certs (traceSigs tr)
+        lastEnv = fst $ head $ traceStates tr
+        lastSlot = lastEnv ^. s
+        allActiveCerts :: [DCert]
+        allActiveCerts = concatMap _certs activeBlocks
+        activeBlocks :: [DummyBlock]
+        activeBlocks = filter (\b -> (b ^. slot <= activationSlot)) (traceSigs tr)
+        activationSlot :: Slot
+        activationSlot = lastSlot - ((lastEnv ^. d) `min` lastSlot)
+
 
 dummyBlock :: SigGen () (DSEnv, DIState) DummyBlock
 dummyBlock () (dsEnv, diState) = do
@@ -47,7 +54,7 @@ dummyBlock () (dsEnv, diState) = do
   return (nextBlock, (nextEnv, nextDiState))
 
 dummyBlocksGen :: Gen (Trace (DSEnv, DIState) DummyBlock)
-dummyBlocksGen = sigsGen () (someDSEnv {_d = 0}, initialDIState) [dummyBlock]
+dummyBlocksGen = sigsGen () (someDSEnv {_d = 1}, initialDIState) [dummyBlock]
 
 instance Arbitrary (Trace (DSEnv, DIState) DummyBlock) where
   arbitrary = dummyBlocksGen
