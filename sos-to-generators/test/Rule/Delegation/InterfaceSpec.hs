@@ -31,21 +31,40 @@ dcersAreTriggered
   :: Trace (DSEnv, DIState) DummyBlock
   -> Property
 dcersAreTriggered tr =
- lastSt ^. activation . dms === Map.fromList (reverse (fmap (_src &&& _dst) allActiveCerts))
-  where lastSt = snd $ head $ traceStates tr
-        lastEnv = fst $ head $ traceStates tr
-        lastSlot = lastEnv ^. s
-        allActiveCerts :: [DCert]
-        allActiveCerts = concatMap _certs activeBlocks
-        activeBlocks :: [DummyBlock]
-        activeBlocks = --filter (\b -> (b ^. slot <= activationSlot)) (traceSigs tr)
-          if null (traceSigs tr)
-          then []
-          else tail (traceSigs tr)
-        -- activationSlot :: Slot
-        -- activationSlot = lastSlot - ((lastEnv ^. d) `min` lastSlot)
+  lastDms === expectedDms
+  where
+    -- | Delegation map in the last state.
+    lastDms = lastSt ^. activation . dms
 
+    -- | The states in the trace are non-empty (it contains at least the
+    -- initial state). We take the last state which is in the head.
+    (lastEnv, lastSt) = head $ traceStates tr
 
+    -- | The expected delegation map can be constructed by taking all the
+    -- certificates and applying them, starting with the empty map. We use
+    -- 'reverse' since the signals come in a 'newest-first' order, and we want
+    -- to apply the oldest certificate first. Note that 'Map.fromList xs' will
+    -- produce a map equivalent to inserting all the elements in @xs@ in the
+    -- order in which they appear. So if a key delegates more than once, only
+    -- the newest certificate will appear in the map.
+    expectedDms = Map.fromList (reverse (fmap (_src &&& _dst) allActiveCerts))
+
+    allActiveCerts :: [DCert]
+    allActiveCerts = concatMap _certs activeBlocks
+
+    -- | We keep all the blocks whose certificates should be active given the
+    -- current slot. The current slot can be found in the last state in the
+    -- trace (see 'lastSlot').
+    activeBlocks :: [DummyBlock]
+    activeBlocks = filter (\b -> b ^. slot <= activationSlot) (traceSigs tr)
+
+    activationSlot :: Slot
+    activationSlot = lastSlot - ((lastEnv ^. d) `min` lastSlot)
+
+    lastSlot = lastEnv ^. s
+
+-- | This corresponds to a state-transition rule where blocks with increasing
+-- slot-numbers are produced.
 dummyBlock :: SigGen () (DSEnv, DIState) DummyBlock
 dummyBlock () (dsEnv, diState) = do
   n <- lift $ arbitraryNat `suchThat` (0 <)
@@ -57,7 +76,7 @@ dummyBlock () (dsEnv, diState) = do
   return (nextBlock, (nextEnv, nextDiState))
 
 dummyBlocksGen :: Gen (Trace (DSEnv, DIState) DummyBlock)
-dummyBlocksGen = sigsGen () (someDSEnv {_d = 1}, initialDIState) [dummyBlock]
+dummyBlocksGen = sigsGen () (someDSEnv {_d = 3}, initialDIState) [dummyBlock]
 
 instance Arbitrary (Trace (DSEnv, DIState) DummyBlock) where
   arbitrary = dummyBlocksGen
