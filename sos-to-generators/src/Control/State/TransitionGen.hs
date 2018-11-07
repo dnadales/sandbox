@@ -46,22 +46,29 @@ data FTrace st sig failure
   deriving Show
 
 sigsGen
-  :: forall env st sig failure
+  :: forall env st sig
   .  env
   -> st
   -> [SigGen env st sig]
   -> Gen (Trace st sig)
-sigsGen env st gs = go [] st
+sigsGen env st gs = fmap (`Trace` st)  (go st [])
   where
-    go :: [(st, sig)] -> st -> Gen (Trace st sig)
-    go acc stPrev = do
-      mSigSt <- nextSig stPrev
+    go
+      :: st
+      -- ^ State before applying the signal
+      -> [(st, sig)]
+      -- ^ Accumulation of generated signals and states after applying these
+      -- signal.
+      -> Gen [(st, sig)]
+      -- ^ New generated signal and state after applying this signal.
+    go stPre acc = do
+      mSigSt <- nextSig stPre
       case mSigSt of
         Nothing ->
-          return $ Trace acc stPrev
+          return acc
         Just (sig, stNext) ->
-          frequency [ (5, return $ Trace acc stPrev)
-                    , (95, go ((stPrev, sig):acc) stNext)
+          frequency [ (5, return acc)
+                    , (95, go stNext ((stNext, sig):acc))
                     ]
 
     nextSig :: st -> Gen (Maybe (sig, st))
@@ -80,7 +87,7 @@ tryApply
   :: a
   -> [a -> MaybeT Gen r]
   -> MaybeT Gen r
-tryApply a [] = mzero
+tryApply _ [] = mzero
 tryApply a rs = do
   i <- lift $ choose (0, length rs - 1)
   (rs !! i) a `mplus` tryApply a (take i rs ++ drop (i+1) rs)
@@ -111,9 +118,9 @@ preApply env st preSig rs = tryApply (env, st, preSig) (fmap uncurry3 rs)
   where uncurry3 f (a, b, c) = f a b c
 
 traceShrink :: Trace st sig -> [Trace st sig]
-traceShrink (Trace [] st)
+traceShrink (Trace [] _)
   = [] -- Nothing left to shrink.
-traceShrink (Trace ((prevSt, prevSig):xs) st)
+traceShrink (Trace (_:xs) st)
     -- The most aggressive shrinking should go at the beginning, so that the
     -- property can be checked with the smallest trace possible. That is why
     -- `prevTrace` is put at the end.

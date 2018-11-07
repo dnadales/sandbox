@@ -9,12 +9,14 @@
 module Rule.Delegation.Scheduling where
 
 import           Control.Lens                (makeLenses, (%~), (^.))
+import           Control.Monad               (mzero, when)
 import           Control.Monad.Except        (ExceptT)
 import           Control.Monad.Trans         (lift)
 import           Data.Either                 (partitionEithers)
 import           Data.Foldable               (traverse_)
 import           Data.Function               ((&))
-import           Data.Set                    (Set)
+import           Data.List                   (foldl')
+import           Data.Set                    (Set, (\\))
 import qualified Data.Set                    as Set
 import           Test.QuickCheck             (Arbitrary, Gen, arbitrary,
                                               elements, frequency, oneof,
@@ -79,12 +81,22 @@ initialDSState
 
 sdeleg :: SigGen DSEnv DSState DCert
 sdeleg env st = do
-  vk_s <- lift . elements . Set.toList . _k $ env
+  -- Find a @vk_s@, such that (s + d, (vk_s, _)) \notin sds
+  let delegatedInSlot = map (fst . snd) $
+        filter ((env ^. s + env ^. d ==) . fst) (st ^. sds)
+      canDelegateInSlot = foldl' (flip Set.delete) (_k env) delegatedInSlot
+
+  -- If no keys cannot delegate in this slot, we cannot generate a valid
+  -- certificate.
+  when (null canDelegateInSlot) mzero
+
+  vk_s <- lift . elements . Set.toList $ canDelegateInSlot
   vk_d <- lift arbitrary
   -- TODO: here we might need to be smarter about the way we determine the epoch.
   e_d <- lift $ arbitrary
-         `suchThat`
-         (\e_d -> (e_d, vk_s) `Set.notMember` (st ^. eks) && env ^. e < e_d)
+         `suchThat` (   \e_d -> (e_d, vk_s) `Set.notMember` (st ^. eks)
+                     && env ^. e <= e_d
+                    )
   let dcert = DCert e_d vk_s vk_d
       nextSt = st & (eks %~ Set.insert (dcert ^. epoch,  dcert ^. src))
                   . (sds %~ ((env ^. s + env ^. d, dwho dcert):))

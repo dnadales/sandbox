@@ -70,19 +70,16 @@ adeleg = [adelegAdd, adelegNoOp]
 
 adelegsBase :: PreSigGen () DState [PDSig] [DSig]
 adelegsBase _ st [] = return ([], st)
-adelegsBase _ _ _   = mzero
+adelegsBase _ _ _   = mzero -- We cannot apply the base rule if a non-empty
+                            -- list of delegations certificates is expected.
 
 adelegsInd :: PreSigGen () DState [PDSig] [DSig]
-adelegsInd env st pcs = do
-  (ds, st') <- preApply env st (gamma pcs) adelegs
-  (d, st'') <- preApply env st (dPre pcs) adeleg
+adelegsInd _ _ [] = mzero -- We cannot apply the inductive rule if an empty
+                          -- list of delegation certificates is expected.
+adelegsInd env st (p:pcs) = do
+  (ds, st') <- preApply env st pcs adelegs
+  (d, st'') <- preApply env st' p adeleg
   return (ds ++ [d], st'')
-  where
-    gamma []  = any @[PDSig] @[DSig]
-    gamma pcs = init pcs
-
-    dPre []  = any @PDSig @DSig
-    dPre pcs = last pcs
 
 instance PreSig PDSig DSig where
   any = (Nothing, (Nothing, Nothing))

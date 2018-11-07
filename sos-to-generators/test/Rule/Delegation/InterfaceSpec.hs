@@ -10,7 +10,7 @@ import qualified Data.Map                    as Map
 import           Test.Hspec                  (Spec, it, pending)
 import           Test.QuickCheck             (Arbitrary, Gen, Property,
                                               arbitrary, property, shrink,
-                                              (===))
+                                              suchThat, (===))
 
 import           Control.State.TransitionGen
 import           Rule.Common
@@ -27,25 +27,28 @@ data DummyBlock
 
 makeLenses ''DummyBlock
 
-delegationMapCorrectlyUpdated
+dcersAreTriggered
   :: Trace (DSEnv, DIState) DummyBlock
   -> Property
-delegationMapCorrectlyUpdated tr =
- lastSt ^. activation . dms === Map.fromList (fmap (_src &&& _dst) allActiveCerts)
+dcersAreTriggered tr =
+ lastSt ^. activation . dms === Map.fromList (reverse (fmap (_src &&& _dst) allActiveCerts))
   where lastSt = snd $ head $ traceStates tr
         lastEnv = fst $ head $ traceStates tr
         lastSlot = lastEnv ^. s
         allActiveCerts :: [DCert]
         allActiveCerts = concatMap _certs activeBlocks
         activeBlocks :: [DummyBlock]
-        activeBlocks = filter (\b -> (b ^. slot <= activationSlot)) (traceSigs tr)
-        activationSlot :: Slot
-        activationSlot = lastSlot - ((lastEnv ^. d) `min` lastSlot)
+        activeBlocks = --filter (\b -> (b ^. slot <= activationSlot)) (traceSigs tr)
+          if null (traceSigs tr)
+          then []
+          else tail (traceSigs tr)
+        -- activationSlot :: Slot
+        -- activationSlot = lastSlot - ((lastEnv ^. d) `min` lastSlot)
 
 
 dummyBlock :: SigGen () (DSEnv, DIState) DummyBlock
 dummyBlock () (dsEnv, diState) = do
-  n <- lift arbitraryNat
+  n <- lift $ arbitraryNat `suchThat` (0 <)
   let
     nextSlot = slotInc n (dsEnv ^. s)
     nextEnv = dsEnv & s .~ nextSlot
@@ -63,4 +66,4 @@ instance Arbitrary (Trace (DSEnv, DIState) DummyBlock) where
 
 spec :: Spec
 spec = it "The delegation map is correctly updated" $
-       property delegationMapCorrectlyUpdated
+       property dcersAreTriggered
