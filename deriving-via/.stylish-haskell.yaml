@@ -1,0 +1,38 @@
+# The stylish-haskell tool is mainly configured by specifying steps. These steps
+# are a list, so they have an order, and one specific step may appear more than
+# once (if needed). Each file is processed by these steps in the given order.
+steps:
+
+  # Import cleanup
+  - imports:  
+      # The following options affect only import list alignment.
+      #
+      # List align has following options:
+      #
+      # - after_alias: Import list is aligned with end of import including
+      #   'as' and 'hiding' keywords.
+      #
+      #   > import qualified Data.List      as List (concat, foldl, foldr, head,
+      #   >                                          init, last, length)
+      #
+      # - with_alias: Import list is aligned with start of alias or hiding.
+      #
+      #   > import qualified Data.List      as List (concat, foldl, foldr, head,
+      #   >                                 init, last, length)
+      #
+      # - new_line: Import list starts always on new line.
+      #
+      #   > import qualified Data.List      as List
+      #   >     (concat, foldl, foldr, head, init, last, length)
+      #
+      # Default: after_alias
+      list_align: new_line  
+
+      # List padding determines indentation of import list on lines after import.
+      # This option affects 'long_list_align'.
+      #
+      # - <integer>: constant value
+      #
+      # - module_name: align under start of module name.
+      #   Useful for 'file' and 'group' align settings.
+      list_padding: 2
