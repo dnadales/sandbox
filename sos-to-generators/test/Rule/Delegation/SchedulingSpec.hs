@@ -11,7 +11,7 @@ import           Rule.Delegation.Scheduling
 
 spec :: Spec
 spec =
-  it "One-delegation per-key per epoch" $
+  it "One-delegation per-key per-epoch" $
   property oneDelegPerKeyPerEpoch
 
 
