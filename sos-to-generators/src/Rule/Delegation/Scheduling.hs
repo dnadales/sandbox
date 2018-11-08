@@ -79,8 +79,8 @@ initialDSState
 -- SDELEG transition system
 --------------------------------------------------------------------------------
 
-sdeleg :: SigGen DSEnv DSState DCert
-sdeleg env st = do
+sdelegAdd :: SigGen DSEnv DSState DCert
+sdelegAdd env st = do
   -- Find a @vk_s@, such that (s + d, (vk_s, _)) \notin sds
   let delegatedInSlot = map (fst . snd) $
         filter ((env ^. s + env ^. d ==) . fst) (st ^. sds)
@@ -105,11 +105,12 @@ sdeleg env st = do
       -- nextSt = st
   return (dcert, nextSt)
 
-sdelegRules :: [Gen (Trace DSState DCert)]
-sdelegRules = [sdelegsGen]
+-- | The @SDELEG@ transition rules.
+sdeleg :: [SigGen DSEnv DSState DCert]
+sdeleg = [sdelegAdd]
 
 sdelegsGen :: Gen (Trace DSState DCert)
-sdelegsGen = sigsGen someDSEnv initialDSState [sdeleg]
+sdelegsGen = sigsGen someDSEnv initialDSState sdeleg
 
 instance Arbitrary (Trace DSState DCert) where
   arbitrary = sdelegsGen
@@ -135,10 +136,11 @@ sdelegsBase _ st = return ([], st)
 sdelegsInd :: SigGen DSEnv DSState [DCert]
 sdelegsInd env st = do
   (cs, st') <- apply env st sdelegs
-  (c, st'') <- sdeleg env st'
+  (c, st'') <- apply env st' sdeleg
   -- TODO: try to make this more efficient.
   return (cs ++ [c], st'')
 
+sdelegs :: [SigGen DSEnv DSState [DCert]]
 sdelegs = [sdelegsBase, sdelegsInd]
 
 sdelegssGen :: Gen (Trace DSState [DCert])
