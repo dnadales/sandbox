@@ -4,7 +4,7 @@ module Lib
     , module B
     ) where
 
-import           A
+import           A (A (A))
 import           B
 
 someFunc :: IO ()
