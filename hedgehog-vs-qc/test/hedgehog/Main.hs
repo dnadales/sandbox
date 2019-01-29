@@ -126,10 +126,33 @@ charsMustNotBeX = property $ do
   c1 <- forAll aFilteredchar
   assert (c0 /= 'x' || c1 /= 'x')
 
+--------------------------------------------------------------------------------
+-- Try to generate non-minimal counter examples
+--------------------------------------------------------------------------------
+
+notLargeOrBothNotEmpty :: Property
+notLargeOrBothNotEmpty = property $ do
+  xs <- forAll randomIntLists
+  ys <- forAll randomIntLists
+  assert $ length xs < 10 && (xs /= [] && ys /=[])
+  where
+    randomIntLists = Gen.frequency
+      [ (1, Gen.list (Range.constant 0 1) randomInt)
+      , (10, Gen.list (Range.constant 1 100000) randomInt)
+      ]
+    randomInt = Gen.integral (Range.constant 1 100)
+
+-- I don't know whether this is a good example either, since hedgehog will
+-- shrink towards the first element in the list.
+
 main :: IO Bool
 main = checkParallel $ Group "Test.Example"
-  [ ("No traces are valid", noTracesAreValid)
-  , ("Records are equal", recordsAreEqual)
-  , ("Strings are wrong", stringsAreWrong)
-  , ("Chars must not be x", charsMustNotBeX)
-  ]
+  [("Produce a minimal counter-example", notLargeOrBothNotEmpty)]
+-- main :: IO Bool
+-- main = checkParallel $ Group "Test.Example"
+--   [ ("No traces are valid", noTracesAreValid)
+--   , ("Records are equal", recordsAreEqual)
+--   , ("Strings are wrong", stringsAreWrong)
+--   , ("Chars must not be x", charsMustNotBeX)
+--   , ("Produce a minimal counter-example", notLargeOrBothNotEmpty)
+--   ]
