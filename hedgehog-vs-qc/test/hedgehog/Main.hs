@@ -40,6 +40,13 @@ anyFoo = do
   c <- Gen.ascii
   return $ Foo n c
 
+smallFoo :: Gen Foo
+smallFoo = do
+  n <- Gen.integral (Range.constant 1 3)
+  c <- Gen.element "!abcd"
+  return $ Foo n c
+
+
 randomTrace :: Gen Trace
 randomTrace = Trace <$> Gen.list (Range.linear 1 1000) randomFoo
 
@@ -58,7 +65,71 @@ noTracesAreValid = property $
   -- have to do with the huge number of shrinks that are generated!
   forAll randomTraceND >>= \(Trace tr) -> assert (any foosAreWrong tr)
 
+--------------------------------------------------------------------------------
+-- Some record
+--
+-- Example taken from: https://www.youtube.com/watch?v=AIv_9T0xKEo
+--------------------------------------------------------------------------------
+
+data SomeRecord
+  = SomeRecord
+  { someInt :: Int
+  , someList :: Trace
+  } deriving (Show, Eq)
+
+arbitraryRecord :: Gen SomeRecord
+arbitraryRecord = do
+  i <- Gen.integral (Range.linear 1 1000)
+  xs <- randomTraceAnyFoo
+  return $ SomeRecord i xs
+  -- where
+  --   arbitraryPair = (,) <$> arbitraryInt <*> arbitraryString
+  --   arbitraryInt = Gen.integral (Range.linear 1 1000)
+  --   arbitraryString = Gen.string (Range.linear 1 100) Gen.ascii
+
+recordsAreEqual :: Property
+recordsAreEqual = property $ do
+  r0 <- forAll arbitraryRecord
+  r1 <- forAll arbitraryRecord
+  r0 === r1
+
+--------------------------------------------------------------------------------
+--
+--------------------------------------------------------------------------------
+
+stringsAreWrong :: Property
+stringsAreWrong = property $ do
+  xs <- forAll arbitraryString
+  xs === "hello"
+  where
+    arbitraryString = Gen.list (Range.constant 1 4) (Gen.element "abcdefghijklmn")
+
+aSpecificChar :: Gen Char
+aSpecificChar = do
+  c <- Gen.element "abxcd"
+  if c `elem` ("x" :: String)
+    then return c
+    else aSpecificChar
+
+aFilteredchar :: Gen Char
+aFilteredchar =
+  Gen.filter (`elem` ("x" :: String)) (Gen.element "abcdefgh1234567890!@#$zyx")
+
+charMustNotBeX :: Property
+charMustNotBeX = property $ do
+  c <- forAll aFilteredchar
+  c /== 'x'
+
+charsMustNotBeX :: Property
+charsMustNotBeX = property $ do
+  c0 <- forAll aFilteredchar
+  c1 <- forAll aFilteredchar
+  assert (c0 /= 'x' || c1 /= 'x')
+
 main :: IO Bool
-main = checkParallel $ Group "Test.Example" [
-      ("No traces are valid", noTracesAreValid)
-    ]
+main = checkParallel $ Group "Test.Example"
+  [ ("No traces are valid", noTracesAreValid)
+  , ("Records are equal", recordsAreEqual)
+  , ("Strings are wrong", stringsAreWrong)
+  , ("Chars must not be x", charsMustNotBeX)
+  ]
