@@ -113,7 +113,7 @@ aSpecificChar = do
 
 aFilteredchar :: Gen Char
 aFilteredchar =
-  Gen.filter (`elem` ("x" :: String)) (Gen.element "abcdefgh1234567890!@#$zyx")
+  Gen.filter (`elem` ("x" :: String)) (Gen.element "ax")
 
 charMustNotBeX :: Property
 charMustNotBeX = property $ do

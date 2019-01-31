@@ -5,6 +5,8 @@
 {-# LANGUAGE DefaultSignatures    #-}
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE TypeOperators        #-}
+{-# LANGUAGE TypeSynonymInstances        #-}
+{-# LANGUAGE FlexibleInstances        #-}
 
 module Example where
 
@@ -22,9 +24,9 @@ data Baz = Baz [Foo] (Bar, Bar) deriving (Data, Typeable, Show, Generic)
 
 data Input = Input Int deriving (Data, Typeable, Show, Generic)
 
-data Output = String String deriving (Data, Typeable, Show, Generic)
+data Output = Output Double deriving (Data, Typeable, Show, Generic)
 
-data Tx = Tx [Input] deriving (Data, Typeable, Show, Generic)
+data Tx = Tx [Input] [Output] deriving (Data, Typeable, Show, Generic)
 
 newtype Size a = Size { unSize :: Int }
 
@@ -79,7 +81,7 @@ class Typeable a => HasTypeReps a where
   typeReps3 :: a -> [TypeRep]
 
   default typeReps3 :: (Generic a, GHasTypeReps (Rep a)) => a -> [TypeRep]
-  typeReps3 a = [typeOf a] ++ gTypeReps (from a)
+  typeReps3 a = typeOf a: gTypeReps (from a)
 
 class GHasTypeReps f where
   gTypeReps :: f a -> [TypeRep]
@@ -100,12 +102,54 @@ instance (GHasTypeReps a) => GHasTypeReps (M1 i c a) where
 
 -- | And the only interesting case, get the type of a type constructor
 instance (HasTypeReps a) => GHasTypeReps (K1 i a) where
-    gTypeReps (K1 x) = [typeOf x] ++ typeReps3 x
+    gTypeReps (K1 x) = typeReps3 x
 
 instance HasTypeReps a => HasTypeReps [a] where
-  typeReps3 xs = concatMap typeReps3 xs
+  typeReps3 xs = typeOf xs: concatMap typeReps3 xs
 
-instance HasTypeReps Input
-instance HasTypeReps Tx
+instance (HasTypeReps a, HasTypeReps b) => HasTypeReps (a, b) where
+  typeReps3 t@(a, b) = [typeOf t, typeOf a, typeOf b]
+
+instance HasTypeReps Char where
+  typeReps3 x = [typeOf x]
 instance HasTypeReps Int where
   typeReps3 x = [typeOf x]
+
+instance HasTypeReps Double where
+  typeReps3 x = [typeOf x]
+
+instance HasTypeReps Input
+instance HasTypeReps Output
+instance HasTypeReps Tx
+
+--------------------------------------------------------------------------------
+-- https://stackoverflow.com/questions/54444559/get-all-the-typereps-in-a-value-using-generic-programming/54446912#54446912
+--------------------------------------------------------------------------------
+
+-- | Returns 'Just' only for lists
+--
+-- This can surely be done more efficiently, but it does the job.
+listTypeReps :: Data a => a -> Maybe [TypeRep]
+listTypeReps x
+
+  | typeRepTyCon (typeOf x) == listTyCon
+  , toConstr x == toConstr ([] :: [()])   -- empty list
+  = Just []
+
+  | typeRepTyCon (typeOf x) == listTyCon
+  , toConstr x == toConstr [()]           -- cons
+  , [headTs, _] <- gmapQ typeReps4 x
+  , [_, Just tailTs] <- gmapQ listTypeReps x
+  = Just (headTs ++ tailTs)
+
+  | otherwise
+  = Nothing
+
+listTyCon :: TyCon
+listTyCon = typeRepTyCon (typeOf ([] :: [()]))
+
+-- | Get the types of subterms
+typeReps4 :: Data a => a -> [TypeRep]
+typeReps4 x = typeOf x : case listTypeReps x of
+                          Just ts -> ts
+                          Nothing -> concat (gmapQ typeReps4 x)
