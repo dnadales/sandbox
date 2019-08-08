@@ -16,10 +16,6 @@ ghc-options:
   - -Wincomplete-uni-patterns
   - -Wredundant-constraints
 
-library:
-  source-dirs: src
-  dependencies: []
-
 benchmarks:
   quickcheck-vs-hedgehog-bench:
     main: Main.hs
@@ -29,8 +25,8 @@ benchmarks:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - quickcheck-vs-hedgehog
     - criterion
     - hedgehog >= 1.0
     - QuickCheck
     - text
+    - transformers

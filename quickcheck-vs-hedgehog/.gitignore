@@ -3,3 +3,4 @@ stack.yaml.lock
 *.cabal
 *~
 TAGS
+dist-newstyle

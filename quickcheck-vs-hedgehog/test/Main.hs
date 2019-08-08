@@ -1,75 +1,74 @@
-module Main where
+{-# LANGUAGE RankNTypes #-}
+
+module Main (main) where
 
 import Criterion.Main (defaultMain, bgroup, bench, nfIO)
-import qualified Hedgehog as HH
-import qualified Hedgehog.Gen as HH.Gen
-import qualified Hedgehog.Range as HH.Range
+import Data.Coerce (coerce)
+import Data.List (foldl')
+import Hedgehog (Gen, Range)
+
+import qualified Hedgehog        as HH
+import qualified Hedgehog.Gen    as Gen
+import qualified Hedgehog.Range  as Range
 import qualified Test.QuickCheck as QC
-import Test.QuickCheck (arbitrary)
+
+import qualified List1
+import qualified List2
+import qualified List3
+import qualified List4
 
 main :: IO ()
 main =
   defaultMain
     [ bgroup "Hedgehog"
-             [ bench "not my number"
-                     (nfIO $ HH.check hhNotMyNumber)
-             , bench "my number is not in the chain"
-                     (nfIO $ HH.check hhNotMyNumberInChain)
+             [ bench "default" $ nfIO $
+                 HH.check $ hhProp Gen.list
+             , bench "List1" $ nfIO $
+                 HH.check $ hhProp List1.list
+             , bench "List2" $ nfIO $
+                 HH.check $ hhProp List2.list
+             , bench "List3" $ nfIO $
+                 HH.check $ hhProp List3.list
+             , bench "List4" $ nfIO $
+                 HH.check $ hhProp List4.list
              ]
     , bgroup "QuickCheck"
-             [ bench "my number is not in the chain"
-                     (nfIO $ QC.quickCheck qcNotMyNumberInChain)
+             [ bench "default" $ nfIO $
+                 QC.quickCheck $ QC.withMaxSuccess 1 $ prop . unChain
              ]
-
     ]
 
-hhNumListGen :: HH.Gen [Int]
-hhNumListGen = HH.Gen.list (HH.Range.linear 0 100) genInt
+{-------------------------------------------------------------------------------
+  Hedgehog version
+-------------------------------------------------------------------------------}
+
+hhProp :: (forall a. Range Int -> Gen a -> Gen [a]) -> HH.Property
+hhProp list = HH.withTests 1 $ HH.property $ do
+    xs <- HH.forAll $ list (Range.singleton listLen) genInt
+    HH.assert $ prop xs
   where
-    genInt = HH.Gen.int (HH.Range.constant 0 100)
+    genInt :: HH.Gen Int
+    genInt = Gen.int (Range.constant 0 100)
 
--- | Check that my phone number doesn't appear in any list.
-hhNotMyNumber :: HH.Property
-hhNotMyNumber =
-  HH.property $
-  do
-    xs <- HH.forAll hhNumListGen
-    xs HH./== myNumber
+{-------------------------------------------------------------------------------
+  QuickCheck version
+-------------------------------------------------------------------------------}
 
--- | 555-batata
-myNumber :: [Int]
-myNumber = [5, 5, 5, 2, 2, 8, 2, 8, 2]
-
-hhListsGen :: HH.Gen [[Int]]
-hhListsGen = HH.Gen.list (HH.Range.constant 0 100) hhNumListGen
-
-hhChainListsGen :: HH.Gen [[[Int]]]
-hhChainListsGen = HH.Gen.list (HH.Range.constant 0 100) hhListsGen
-
-hhNotMyNumberInChain :: HH.Property
-hhNotMyNumberInChain =
-  HH.property $
-  do
-    txss <- HH.forAll hhChainListsGen
-    HH.assert $ myNumber `notElem` concat txss
-
-newtype Chain = Chain { unChain :: [Block] }
-  deriving (Eq, Show)
-
-newtype Block = Block { unBlock :: [Payload] }
-  deriving (Eq, Show)
-
-newtype Payload = Payload { unPayload :: [Int] }
-  deriving (Eq, Show)
+newtype Chain = Chain [QC.NonNegative Int]
+  deriving (Show)
 
 instance QC.Arbitrary Chain where
-  arbitrary = Chain <$> QC.vectorOf 100 arbitrary
+  arbitrary = Chain <$> QC.vectorOf listLen QC.arbitrary
 
-instance QC.Arbitrary Block where
-  arbitrary = Block <$> QC.vectorOf 100 arbitrary
+unChain :: Chain -> [Int]
+unChain = coerce
 
-instance QC.Arbitrary Payload where
-  arbitrary = Payload <$> QC.vectorOf 100 arbitrary
+{-------------------------------------------------------------------------------
+  Shared
+-------------------------------------------------------------------------------}
 
-qcNotMyNumberInChain :: Chain -> Bool
-qcNotMyNumberInChain = ((myNumber `notElem`) . concat) . fmap (fmap unPayload . unBlock) . unChain
+listLen :: Int
+listLen = 100000
+
+prop :: [Int] -> Bool
+prop xs = foldl' (+) 0 xs >= 0
