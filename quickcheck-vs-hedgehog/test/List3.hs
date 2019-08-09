@@ -106,10 +106,10 @@ splits (x:xs) = ([],x,xs) : fmap (\(as,b,cs) -> (x:as,b,cs)) (splits xs)
 --
 -- Note that the last chunk we delete might have fewer elements than @n@.
 removes :: forall a. Int -> [a] -> [[a]]
-removes k = \xs -> go (length xs) xs
+removes k = \xs -> go xs
   where
-    go :: Int -> [a] -> [[a]]
-    go _ [] = []
-    go n xs = xs2 : map (xs1 ++) (go (n-k) xs2)
+    go :: [a] -> [[a]]
+    go [] = []
+    go xs = xs2 : map (xs1 ++) (go xs2)
       where
         (xs1, xs2) = splitAt k xs
