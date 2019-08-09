@@ -1,4 +1,11 @@
-module List3 (list) where
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE RankNTypes   #-}
+
+module List3 (
+    list
+  , interleaveList
+  , interleaveListFast
+  ) where
 
 import Control.Monad.Trans.Maybe
 import Data.Coerce
@@ -54,9 +61,55 @@ interleaveList' ts =
         ]
 
 {-------------------------------------------------------------------------------
+  Faster interleaving
+-------------------------------------------------------------------------------}
+
+interleaveListFast :: [TreeT (MaybeT Identity) a] -> TreeT (MaybeT Identity) [a]
+interleaveListFast = coerce (Just . interleaveListFast' . catMaybes)
+
+interleaveListFast' :: [NodeT (MaybeT Identity) a] -> NodeT (MaybeT Identity) [a]
+interleaveListFast' ts =
+    NodeT (map nodeValue ts) $
+      concat [
+          [ wrapTreeT . Just $ interleaveListFast' ts'
+          | chunkSize <- chunkSizes
+          , ts' <- removes chunkSize ts
+          ]
+        , [ wrapTreeT . Just $ interleaveListFast' (xs ++ [y'] ++ zs)
+          | (xs, y, zs) <- splits ts
+          , y' <- mapMaybe unwrapTreeT (nodeChildren y)
+          ]
+        ]
+  where
+    -- Chunks we try to remove from the list
+    --
+    -- For example, if the list has length 10, @chunkSizes = [10,5,2,1]@
+    chunkSizes :: [Int]
+    chunkSizes = takeWhile (>0) $ iterate (`div` 2) (length ts)
+
+{-------------------------------------------------------------------------------
   Auxiliary
 -------------------------------------------------------------------------------}
 
 splits :: [a] -> [([a], a, [a])]
 splits []     = []
 splits (x:xs) = ([],x,xs) : fmap (\(as,b,cs) -> (x:as,b,cs)) (splits xs)
+
+-- | @removes n@ computes all ways we can remove chunks of size @n@ from a list
+--
+-- Examples
+--
+-- > removes 1 [1..3] == [[2,3],[1,3],[1,2]]
+-- > removes 2 [1..4] == [[3,4],[1,2]]
+-- > removes 2 [1..5] == [[3,4,5],[1,2,5],[1,2,3,4]]
+-- > removes 3 [1..5] == [[4,5],[1,2,3]]
+--
+-- Note that the last chunk we delete might have fewer elements than @n@.
+removes :: forall a. Int -> [a] -> [[a]]
+removes k = \xs -> go (length xs) xs
+  where
+    go :: Int -> [a] -> [[a]]
+    go _ [] = []
+    go n xs = xs2 : map (xs1 ++) (go (n-k) xs2)
+      where
+        (xs1, xs2) = splitAt k xs
