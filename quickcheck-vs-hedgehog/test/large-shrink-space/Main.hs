@@ -28,10 +28,10 @@ magicLength :: Int
 magicLength = 42
 
 payloadLengthMin :: Int
-payloadLengthMin = 15
+payloadLengthMin = 25
 
 payloadLengthMax :: Int
-payloadLengthMax = 25
+payloadLengthMax = 35
 
 hhPropNoMagicLength :: HH.Property
 hhPropNoMagicLength =
@@ -103,18 +103,18 @@ qcPropNoMagicLength xs = length xs <= magicLength
 
 instance Arbitrary Block where
   arbitrary = Block
-            <$> arbitrary -- listWithLengthRange payloadLengthMin payloadLengthMax arbitrary
-            <*> arbitrary -- listWithLengthRange payloadLengthMin payloadLengthMax arbitrary
-            <*> arbitrary -- listWithLengthRange payloadLengthMin payloadLengthMax arbitrary
-            <*> arbitrary -- listWithLengthRange payloadLengthMin payloadLengthMax arbitrary
+            <$> listWithLengthRange payloadLengthMin payloadLengthMax arbitrary
+            <*> listWithLengthRange payloadLengthMin payloadLengthMax arbitrary
+            <*> listWithLengthRange payloadLengthMin payloadLengthMax arbitrary
+            <*> listWithLengthRange payloadLengthMin payloadLengthMax arbitrary
 
-  shrink (Block ts ds us vs) = [Block [] [] [] []]
-    -- [ Block ts' ds' us' vs'
-    -- | (ts', ds', us', vs') <- zip4 (shrinkListUpTo payloadLengthMin ts)
-    --                                (shrinkListUpTo payloadLengthMin ds)
-    --                                (shrinkListUpTo payloadLengthMin us)
-    --                                (shrinkListUpTo payloadLengthMin vs)
-    -- ]
+  shrink (Block ts ds us vs) =
+    [ Block ts' ds' us' vs'
+    | (ts', ds', us', vs') <- zip4 (shrinkListUpTo payloadLengthMin ts)
+                                   (shrinkListUpTo payloadLengthMin ds)
+                                   (shrinkListUpTo payloadLengthMin us)
+                                   (shrinkListUpTo payloadLengthMin vs)
+    ]
 
 
 listWithLengthRange :: Int -> Int -> QC.Gen a -> QC.Gen [a]
@@ -125,19 +125,19 @@ listWithLengthRange minLength maxLength genA = do
 shrinkListUpTo :: Arbitrary a => Int -> [a] -> [[a]]
 -- Just using a naive shrink for now.
 shrinkListUpTo minLength xs =
---  filter ((minLength <=) . length) [ xs' | xs' <- shrink xs ]
-  [[]] -- ++ [ take minLength xs ]
+  filter ((minLength <=) . length) [ xs' | xs' <- shrink xs ]
 
 instance Arbitrary Transaction where
-  arbitrary = Transaction <$> listWithLengthRange payloadLengthMin payloadLengthMax arbitrary
+  arbitrary =
+    Transaction <$> listWithLengthRange payloadLengthMin payloadLengthMax arbitrary
 
-  shrink (Transaction ios) = [ Transaction ios' | ios' <- shrinkListUpTo payloadLengthMin ios ]
+  shrink (Transaction ios) =
+    [ Transaction ios' | ios' <- shrinkListUpTo payloadLengthMin ios ]
 
 instance Arbitrary InputOutput where
   arbitrary = InputOutput <$> arbitrary <*> arbitrary
 
-  shrink (InputOutput is os) =  [ InputOutput is' os | is' <- shrink is ]
-                             ++ [ InputOutput is os' | os' <- shrink os ]
+  shrink (InputOutput is os) =  [ InputOutput is' os' | (is', os') <- shrink (is, os) ]
 
 instance Arbitrary Input where
   arbitrary = Input <$> QC.choose (0, 100)
