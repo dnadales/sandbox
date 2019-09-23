@@ -28,10 +28,10 @@ magicLength :: Int
 magicLength = 42
 
 payloadLengthMin :: Int
-payloadLengthMin = 35
+payloadLengthMin = 15
 
 payloadLengthMax :: Int
-payloadLengthMax = 45
+payloadLengthMax = 25
 
 hhPropNoMagicLength :: HH.Property
 hhPropNoMagicLength =
@@ -46,7 +46,7 @@ hhPropNoMagicLength =
             <*> Gen.list payloadRange updateGen
             <*> Gen.list payloadRange voteGen
       where
-        payloadRange = Range.constant 35 45
+        payloadRange = Range.constant payloadLengthMin payloadLengthMax
 
         txGen :: HH.Gen Transaction
         txGen = Transaction <$> Gen.list payloadRange ioGen
@@ -103,16 +103,19 @@ qcPropNoMagicLength xs = length xs <= magicLength
 
 instance Arbitrary Block where
   arbitrary = Block
-            <$> listWithLengthRange payloadLengthMin payloadLengthMax arbitrary
-            <*> listWithLengthRange payloadLengthMin payloadLengthMax arbitrary
-            <*> listWithLengthRange payloadLengthMin payloadLengthMax arbitrary
-            <*> listWithLengthRange payloadLengthMin payloadLengthMax arbitrary
+            <$> arbitrary -- listWithLengthRange payloadLengthMin payloadLengthMax arbitrary
+            <*> arbitrary -- listWithLengthRange payloadLengthMin payloadLengthMax arbitrary
+            <*> arbitrary -- listWithLengthRange payloadLengthMin payloadLengthMax arbitrary
+            <*> arbitrary -- listWithLengthRange payloadLengthMin payloadLengthMax arbitrary
 
-  shrink (Block ts ds us vs) = fmap (\(ts', ds', us', vs') ->  Block ts' ds' us' vs')
-                             $ zip4 (shrinkListUpTo payloadLengthMin ts)
-                                    (shrinkListUpTo payloadLengthMin ds)
-                                    (shrinkListUpTo payloadLengthMin us)
-                                    (shrinkListUpTo payloadLengthMin vs)
+  shrink (Block ts ds us vs) = [Block [] [] [] []]
+    -- [ Block ts' ds' us' vs'
+    -- | (ts', ds', us', vs') <- zip4 (shrinkListUpTo payloadLengthMin ts)
+    --                                (shrinkListUpTo payloadLengthMin ds)
+    --                                (shrinkListUpTo payloadLengthMin us)
+    --                                (shrinkListUpTo payloadLengthMin vs)
+    -- ]
+
 
 listWithLengthRange :: Int -> Int -> QC.Gen a -> QC.Gen [a]
 listWithLengthRange minLength maxLength genA = do
@@ -120,7 +123,10 @@ listWithLengthRange minLength maxLength genA = do
   QC.vectorOf n genA
 
 shrinkListUpTo :: Arbitrary a => Int -> [a] -> [[a]]
-shrinkListUpTo minLength xs = filter ((minLength <=) . length) [ xs' | xs' <- shrink xs ]
+-- Just using a naive shrink for now.
+shrinkListUpTo minLength xs =
+--  filter ((minLength <=) . length) [ xs' | xs' <- shrink xs ]
+  [[]] -- ++ [ take minLength xs ]
 
 instance Arbitrary Transaction where
   arbitrary = Transaction <$> listWithLengthRange payloadLengthMin payloadLengthMax arbitrary
@@ -144,7 +150,6 @@ instance Arbitrary Vote where
 
 instance Arbitrary Delegation where
   arbitrary = Delegation <$> QC.choose (0, 100)
-
 
 instance Arbitrary Update where
   arbitrary = Update <$> listWithLengthRange payloadLengthMin payloadLengthMax arbitrary
