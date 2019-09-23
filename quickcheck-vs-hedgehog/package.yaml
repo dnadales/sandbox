@@ -43,3 +43,6 @@ tests:
     - criterion
     - hedgehog >= 1.0
     - QuickCheck
+    - tasty
+    - tasty-quickcheck
+    - tasty-hedgehog
