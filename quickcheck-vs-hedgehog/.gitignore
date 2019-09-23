@@ -4,3 +4,8 @@ stack.yaml.lock
 *~
 TAGS
 dist-newstyle
+
+# Profiling artifacts
+*.html
+*.prof
+*.txt

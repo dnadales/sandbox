@@ -30,3 +30,16 @@ benchmarks:
     - QuickCheck
     - text
     - transformers
+
+tests:
+  large-shrink-space:
+    main: Main.hs
+    source-dirs: test/large-shrink-space/
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - criterion
+    - hedgehog >= 1.0
+    - QuickCheck

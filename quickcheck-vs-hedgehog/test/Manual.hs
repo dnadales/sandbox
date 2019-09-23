@@ -67,6 +67,7 @@ manualReplicate n (Manual f) = Manual $ \size seed ->
                      (s', s'') -> f size s' : go (n' - 1) s''
     in go n seed
 
+
 {-------------------------------------------------------------------------------
   Auxiliary
 -------------------------------------------------------------------------------}
@@ -76,3 +77,27 @@ wrapTreeT = coerce
 
 unwrapTreeT :: TreeT (MaybeT Identity) a -> Maybe (NodeT (MaybeT Identity) a)
 unwrapTreeT = coerce
+
+splits :: [a] -> [([a], a, [a])]
+splits []     = []
+splits (x:xs) = ([],x,xs) : fmap (\(as,b,cs) -> (x:as,b,cs)) (splits xs)
+
+-- | @removes n@ splits a list into chunks of size n and returns all possible
+-- lists where one of these chunks has been removed.
+--
+-- Examples
+--
+-- > removes 1 [1..3] == [[2,3],[1,3],[1,2]]
+-- > removes 2 [1..4] == [[3,4],[1,2]]
+-- > removes 2 [1..5] == [[3,4,5],[1,2,5],[1,2,3,4]]
+-- > removes 3 [1..5] == [[4,5],[1,2,3]]
+--
+-- Note that the last chunk we delete might have fewer elements than @n@.
+removes :: forall a. Int -> [a] -> [[a]]
+removes k = \xs -> go xs
+  where
+    go :: [a] -> [[a]]
+    go [] = []
+    go xs = xs2 : map (xs1 ++) (go xs2)
+      where
+        (xs1, xs2) = splitAt k xs
