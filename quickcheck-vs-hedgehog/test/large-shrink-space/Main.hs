@@ -16,22 +16,23 @@ import           Test.QuickCheck (Arbitrary, arbitrary, shrink)
 
 
 main :: IO ()
-main = defaultMain tests
-  where
-    tests :: TestTree
-    tests = testGroup "Large Shrink Space"
-              [ Tasty.Hedgehog.testProperty "Hedgehog" hhPropNoMagicLength
-              , Tasty.QuickCheck.testProperty "QuickCheck" qcPropNoMagicLength
-              ]
+main = QC.quickCheck qcPropNoMagicLength
+  -- defaultMain tests
+  -- where
+  --   tests :: TestTree
+  --   tests = testGroup "Large Shrink Space"
+  --             [ Tasty.Hedgehog.testProperty "Hedgehog" hhPropNoMagicLength
+  --             , Tasty.QuickCheck.testProperty "QuickCheck" qcPropNoMagicLength
+  --             ]
 
 magicLength :: Int
 magicLength = 42
 
 payloadLengthMin :: Int
-payloadLengthMin = 25
+payloadLengthMin = 35
 
 payloadLengthMax :: Int
-payloadLengthMax = 35
+payloadLengthMax = 45
 
 hhPropNoMagicLength :: HH.Property
 hhPropNoMagicLength =
@@ -123,7 +124,6 @@ listWithLengthRange minLength maxLength genA = do
   QC.vectorOf n genA
 
 shrinkListUpTo :: Arbitrary a => Int -> [a] -> [[a]]
--- Just using a naive shrink for now.
 shrinkListUpTo minLength xs =
   filter ((minLength <=) . length) [ xs' | xs' <- shrink xs ]
 
