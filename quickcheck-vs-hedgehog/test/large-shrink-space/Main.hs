@@ -8,10 +8,6 @@ import           Test.Tasty (TestTree, defaultMain, testGroup)
 import qualified Test.Tasty.Hedgehog as Tasty.Hedgehog
 import qualified Test.Tasty.QuickCheck as Tasty.QuickCheck
 
-import qualified Test.QuickCheck        as QC
-import           Test.QuickCheck (Arbitrary, arbitrary, shrink)
-
-
 main :: IO ()
 main =
   defaultMain tests
@@ -24,5 +20,6 @@ main =
                 ]
               , testGroup "Basic"
                 [ Tasty.Hedgehog.testProperty "Hedgehog" MagicLengthBasic.hhPropNoMagicLength
+                , Tasty.QuickCheck.testProperty "QuickCheck" MagicLengthBasic.qcPropNoMagicLength
                 ]
               ]

@@ -5,6 +5,8 @@ import qualified Hedgehog               as HH
 import qualified Hedgehog.Gen           as Gen
 import qualified Hedgehog.Range         as Range
 
+import qualified Test.QuickCheck        as QC
+
 magicLength :: Int
 magicLength = 50
 
@@ -19,3 +21,16 @@ hhPropNoMagicLength =
     aGen = Gen.list (Range.constant 0 (2 * magicLength)) intGen
       where
         intGen = Gen.int (Range.linear 0 100)
+
+qcPropNoMagicLength :: QC.Property
+qcPropNoMagicLength = QC.forAll myGenLists (\xs -> length xs <= magicLength || all ((<= magicLength) . length) xs)
+
+myGenLists :: QC.Gen [[Int]]
+myGenLists = do
+  n <- QC.choose (0, 2 * magicLength)
+  QC.vectorOf n myGenList
+  where
+    myGenList :: QC.Gen [Int]
+    myGenList = do
+      n <- QC.choose (0, 2 * magicLength)
+      QC.vector n
