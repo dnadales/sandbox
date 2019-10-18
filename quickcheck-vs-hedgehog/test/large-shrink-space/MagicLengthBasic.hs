@@ -6,7 +6,7 @@ import qualified Hedgehog.Gen           as Gen
 import qualified Hedgehog.Range         as Range
 
 magicLength :: Int
-magicLength = 10
+magicLength = 50
 
 hhPropNoMagicLength :: HH.Property
 hhPropNoMagicLength =
