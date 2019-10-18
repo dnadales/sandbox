@@ -23,7 +23,11 @@ hhPropNoMagicLength =
         intGen = Gen.int (Range.linear 0 100)
 
 qcPropNoMagicLength :: QC.Property
-qcPropNoMagicLength = QC.forAll myGenLists (\xs -> length xs <= magicLength || all ((<= magicLength) . length) xs)
+qcPropNoMagicLength =
+  QC.forAllShrink
+    myGenLists
+    QC.shrink
+    (\xs -> length xs <= magicLength || all ((<= magicLength) . length) xs)
 
 myGenLists :: QC.Gen [[Int]]
 myGenLists = do
