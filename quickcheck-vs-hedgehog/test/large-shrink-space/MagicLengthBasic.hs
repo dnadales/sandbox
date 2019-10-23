@@ -8,26 +8,31 @@ import qualified Hedgehog.Range         as Range
 import qualified Test.QuickCheck        as QC
 
 magicLength :: Int
-magicLength = 50
+magicLength = 200
 
 hhPropNoMagicLength :: HH.Property
 hhPropNoMagicLength =
   HH.property $ do
     xs <- HH.forAll $ Gen.list (Range.constant 0 (2 * magicLength)) aGen
-    HH.assert $ length xs <= magicLength || all ((<= magicLength) . length) xs
+    HH.assert $ (length xs <= magicLength || all ((<= magicLength) . length) xs)
+                &&
+                all (all (<= magicLength)) xs
 
   where
     aGen :: HH.Gen [Int]
     aGen = Gen.list (Range.constant 0 (2 * magicLength)) intGen
       where
-        intGen = Gen.int (Range.linear 0 100)
+        intGen = Gen.int (Range.linear 0 magicLength)
 
 qcPropNoMagicLength :: QC.Property
 qcPropNoMagicLength =
   QC.forAllShrink
     myGenLists
     QC.shrink
-    (\xs -> length xs <= magicLength || all ((<= magicLength) . length) xs)
+    (\xs -> (length xs <= magicLength || all ((<= magicLength) . length) xs)
+            &&
+            all (all (<= magicLength)) xs
+    )
 
 myGenLists :: QC.Gen [[Int]]
 myGenLists = do
