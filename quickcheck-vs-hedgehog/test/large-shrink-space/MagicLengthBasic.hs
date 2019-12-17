@@ -8,7 +8,7 @@ import qualified Hedgehog.Range         as Range
 import qualified Test.QuickCheck        as QC
 
 magicLength :: Int
-magicLength = 200
+magicLength = 100
 
 hhPropNoMagicLength :: HH.Property
 hhPropNoMagicLength =

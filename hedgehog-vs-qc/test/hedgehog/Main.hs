@@ -147,7 +147,8 @@ notLargeOrBothNotEmpty = property $ do
 
 main :: IO Bool
 main = checkParallel $ Group "Test.Example"
-  [("Produce a minimal counter-example", notLargeOrBothNotEmpty)]
+  [("Special pair", prop_specialPair)]
+--  [("Produce a minimal counter-example", notLargeOrBothNotEmpty)] -- This is a test that sometimes eats up all of HH memory
 -- main :: IO Bool
 -- main = checkParallel $ Group "Test.Example"
 --   [ ("No traces are valid", noTracesAreValid)
@@ -156,3 +157,25 @@ main = checkParallel $ Group "Test.Example"
 --   , ("Chars must not be x", charsMustNotBeX)
 --   , ("Produce a minimal counter-example", notLargeOrBothNotEmpty)
 --   ]
+
+--------------------------------------------------------------------------------
+-- Example of dependent shrinking, to compare against quick-check
+--------------------------------------------------------------------------------
+
+-- prop_specialPair :: Property
+-- prop_specialPair = property $ do
+--   (_, xs) <- forAll specialPair
+--   case xs of
+--     x:_ -> x /== 7
+--     _   -> success
+
+prop_specialPair :: Property
+prop_specialPair = property $ do
+  (_, xs) <- forAll specialPair
+  assert $ 5 `notElem` xs
+
+specialPair :: Gen (Int, [Int])
+specialPair = do
+  n <- Gen.integral (Range.linear 0 10)
+  m <- Gen.integral (Range.linear 0 10)
+  pure $ (n, [n .. n + m])
