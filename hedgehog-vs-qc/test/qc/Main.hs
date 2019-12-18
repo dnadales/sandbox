@@ -75,67 +75,89 @@ main :: IO ()
 main = -- QuickCheck evensAreEven
   -- QuickCheck foosAreWrong
 --  quickCheck noTracesAreValid
-  quickCheck prop_specialPairH
+--  quickCheck prop_specialPair
+  quickCheck $ verbose prop_listSh
 --  quickCheck $ forAll randomTraceND noTracesAreValid
 
 --------------------------------------------------------------------------------
 -- Example of dependent shrinking, to compare against hedgehog
 --------------------------------------------------------------------------------
 
-data SpecialPair =
-  SpecialPair
-  { n :: Int
-  , xs :: [Int]
+data List =
+  List
+  { llength :: Int
+  , list :: [Int]
   } deriving (Eq, Show)
 
 
 -- shrinkSpecial :: (Int -> [Int]) -> [Int -> [Int]]
 -- shrinkSpecial =  ->
 
--- shrinkSpecial :: SpecialPair -> [SpecialPair]
--- shrinkSpecial SpecialPair {n, xs} =
---   [ SpecialPair n' xs | n' <- shrink n
+-- shrinkSpecial :: List -> [List]
+-- shrinkSpecial List {n, xs} =
+--   [ List n' xs | n' <- shrink n
 --                       , xs' <-
 --   ]
 
-instance Arbitrary SpecialPair where
+instance Arbitrary List where
   arbitrary = do
-    someN <- choose (0, 10)
-    m <- choose (0, 10)
-    pure $! SpecialPair { n = someN, xs = [someN .. someN + m] }
+    n <- choose (0, 10)
+    xs <- vector n
+    pure $! List { llength = n, list = xs }
 
   -- How to achieve the same shrinking behavior as for prop_specialPair?
-  -- shrink SpecialPair { n, xs } =
-  --   [ SpecialPair n xs' | xs' <- shrink xs ]
+  -- shrink List { n, xs } =
+  --   [ List n xs' | xs' <- shrink xs ]
 
-prop_specialPair :: SpecialPair -> Bool
-prop_specialPair SpecialPair { xs } = 7 `notElem` xs
+prop_specialPair :: List -> Bool
+prop_specialPair List { list } = length list < 5
   -- case xs of
   --   x:_ -> x =/= 7
   --   _   -> property ()
 
-data SpecialPairH =
-  SpecialPairH
-  { y :: Int
-  , fs :: Int -> [Int]
+data ListSh =
+  ListSh
+  { lengthSh :: Int
+  , listSh :: [Int]
+  , shrinks :: [ListSh]
   }
+--  deriving Show
 
-instance Show SpecialPairH where
-  show SpecialPairH { y, fs } = show $ SpecialPair y (fs y)
+-- Use this if you don't want to show the smaller shrinks
+instance Show ListSh where
+  show ListSh { lengthSh, listSh } = show $ (lengthSh, listSh)
 
-shrinkSpecialPairH :: SpecialPairH -> [SpecialPairH]
-shrinkSpecialPairH SpecialPairH {y, fs} =
-  [ SpecialPairH n' fs | n' <- shrink y
-  ]
 
-instance Arbitrary SpecialPairH where
+genListShOfLength :: Int -> Gen ListSh
+genListShOfLength n = do
+  xs <- vector n
+  listShs <- traverse genListShOfLength (shrink n)
+  pure ListSh { lengthSh = n
+              , listSh = xs
+              , shrinks = listShs
+              }
+
+lengthPreservingShrink :: Arbitrary a => [a] -> [[a]]
+lengthPreservingShrink [] = []
+lengthPreservingShrink (x:xs) =
+  [ x':xs | x' <- shrink x ]
+  ++
+  [ x:xs' | xs' <- lengthPreservingShrink xs ]
+
+shrinkListSh :: ListSh -> [ListSh]
+shrinkListSh ListSh { lengthSh, listSh, shrinks } =
+  -- concatMap shrinkListSh
+  shrinks
+  ++
+  fmap (\xs -> ListSh lengthSh xs []) (lengthPreservingShrink listSh)
+
+
+instance Arbitrary ListSh where
   arbitrary = do
-    someN <- choose (0, 10)
-    m <- choose (0, 10)
-    pure $! SpecialPairH { y = someN, fs = \n -> [n .. n + m] }
+    n <- choose (0, 15)
+    genListShOfLength n
 
-  shrink SpecialPairH {y, fs} =
-    [ SpecialPairH n' fs | n' <- shrink y ]
+  shrink = shrinkListSh
 
-prop_specialPairH :: SpecialPairH -> Bool
-prop_specialPairH SpecialPairH { y, fs } = 5 `notElem` fs y
+prop_listSh :: ListSh -> Bool
+prop_listSh ListSh { listSh } = length listSh < 5

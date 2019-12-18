@@ -172,10 +172,12 @@ main = checkParallel $ Group "Test.Example"
 prop_specialPair :: Property
 prop_specialPair = property $ do
   (_, xs) <- forAll specialPair
-  assert $ 5 `notElem` xs
+  assert $ length xs < 5
 
 specialPair :: Gen (Int, [Int])
 specialPair = do
-  n <- Gen.integral (Range.linear 0 10)
-  m <- Gen.integral (Range.linear 0 10)
-  pure $ (n, [n .. n + m])
+  n <- genInt
+  xs <- Gen.list (Range.singleton n) genInt
+  pure $ (n, xs)
+  where
+    genInt = Gen.integral (Range.linear 0 10)
