@@ -30,6 +30,7 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - QuickCheck
+    - containers
 
   hedgehog-tests:
     main: Main.hs
