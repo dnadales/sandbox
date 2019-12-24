@@ -152,7 +152,6 @@ lengthPreservingShrink (x:xs) =
 
 shrinkListSh :: ListSh -> [ListSh]
 shrinkListSh ListSh { lengthSh, listSh, shrinks } =
-  -- concatMap shrinkListSh
   shrinks
   ++
   fmap (\xs -> ListSh lengthSh xs []) (lengthPreservingShrink listSh)
@@ -187,13 +186,7 @@ prop_listSh ListSh { listSh } = length listSh < 5
 intGen :: (Int, Int) -> Gen (Tree Int)
 intGen (from, to) = do
   n <- choose (from, to)
-  --
-  -- pure $! Node n (mkShrinkTree (reverse $ shrink n))
   pure $ unfoldTree (\n -> (n, reverse $ shrink n)) n
-  --
-  -- A linear (and thus inneficient) shrinker:
-  --
-  -- pure $! Node n (mkShrinkTree (reverse [from + 1 .. to]))
 
 mkShrinkTree :: [a] -> [Tree a]
 mkShrinkTree [] = []
@@ -222,8 +215,6 @@ instance Arbitrary (Tree List) where
   arbitrary = do
     nT <- intGen (0, 15)
     applyToTree genListTreeOfLength nT
---    pure $ nT >>= genListTreeOfLength
---    (\n -> genListTreeOfLength n)
 
   shrink (Node _ xs) = xs
 
@@ -235,7 +226,6 @@ newtype TreeList = TreeList (Tree List)
 
 instance Show TreeList where
   show (TreeList (Node x _)) = show x
-
 
 instance Arbitrary TreeList where
 
