@@ -6,7 +6,6 @@
 module Main where
 
 import Test.QuickCheck
-import Data.Coerce (coerce)
 import Data.Tree
 
 --------------------------------------------------------------------------------
@@ -186,7 +185,7 @@ prop_listSh ListSh { listSh } = length listSh < 5
 intGen :: (Int, Int) -> Gen (Tree Int)
 intGen (from, to) = do
   n <- choose (from, to)
-  pure $ unfoldTree (\n -> (n, reverse $ shrink n)) n
+  pure $ unfoldTree (\n -> (n, shrink n)) n
 
 mkShrinkTree :: [a] -> [Tree a]
 mkShrinkTree [] = []
@@ -195,7 +194,7 @@ mkShrinkTree (x:xs) = [Node x (mkShrinkTree xs)]
 genListTreeOfLength :: Int -> Gen (Tree List)
 genListTreeOfLength n = do
   xs <- vector n
-  pure $ unfoldTree (\xs -> (List n xs, reverse $ lengthPreservingShrink xs)) xs
+  pure $ unfoldTree (\xs -> (List n xs, lengthPreservingShrink xs)) xs
 
 applyToTree :: forall a b . (a -> Gen (Tree b)) -> Tree a -> Gen (Tree b)
 applyToTree f (Node a as) = do
@@ -217,9 +216,6 @@ instance Arbitrary (Tree List) where
     applyToTree genListTreeOfLength nT
 
   shrink (Node _ xs) = xs
-
-prop_listTree :: Tree List -> Bool
-prop_listTree (Node (List { list }) _) = length list < 5
 
 newtype TreeList = TreeList (Tree List)
   deriving (Eq)

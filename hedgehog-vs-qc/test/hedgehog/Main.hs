@@ -147,7 +147,7 @@ notLargeOrBothNotEmpty = property $ do
 
 main :: IO Bool
 main = checkParallel $ Group "Test.Example"
-  [("Special pair", prop_specialPair)]
+  [("Special pair", prop_list)]
 --  [("Produce a minimal counter-example", notLargeOrBothNotEmpty)] -- This is a test that sometimes eats up all of HH memory
 -- main :: IO Bool
 -- main = checkParallel $ Group "Test.Example"
@@ -169,15 +169,18 @@ main = checkParallel $ Group "Test.Example"
 --     x:_ -> x /== 7
 --     _   -> success
 
-prop_specialPair :: Property
-prop_specialPair = property $ do
-  (_, xs) <- forAll specialPair
-  assert $ length xs < 5
+data List = List Int [Int]
+  deriving (Show)
 
-specialPair :: Gen (Int, [Int])
-specialPair = do
+listGen :: Gen List
+listGen = do
   n <- genInt
   xs <- Gen.list (Range.singleton n) genInt
-  pure $ (n, xs)
+  pure $ List n xs
   where
     genInt = Gen.integral (Range.linear 0 10)
+
+prop_list :: Property
+prop_list = property $ do
+  List _ xs <- forAll listGen
+  assert $ length xs < 5
