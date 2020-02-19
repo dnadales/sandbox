@@ -1,16 +1,28 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Main where
 
 import           Data.List (find)
+import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import qualified Crypto.Hash as H
+import           Data.ByteString (ByteString)
+import qualified Data.ByteArray as BA
+
+import           Cardano.Binary (serialize')
+import           Cardano.Prelude (noUnexpectedThunks)
 
 main :: IO ()
-main =
-  print $ result (10^6)
+main = do
+  thunkInfo <- noUnexpectedThunks [] stakeDist
+  print thunkInfo
+  print $ result
   where
-    fromInteger = show
-    result n = Map.lookup (fromInteger n) theMap
-    -- result n = find (== fromInteger n) list
-      where
-        list = fromInteger <$> [0 .. (n :: Int)]
-        theMap = Map.fromList
-               $ zip list (repeat 1)
+    n = 10^6
+    theHashOf :: Int -> ByteString
+    theHashOf = BA.convert . H.hash @ByteString @H.MD5 . serialize'
+    result = Map.lookup (theHashOf n) stakeDist
+    stakeDist :: Map ByteString Int
+    stakeDist = Map.fromList
+              $ zip (theHashOf <$> [0 .. (n :: Int)])
+                    (repeat 1)

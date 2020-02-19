@@ -13,4 +13,9 @@ test-suite lookup
   hs-source-dirs:    src
   type:              exitcode-stdio-1.0
   build-depends:     base >=4.11 && <5
+                   , bytestring
+                   , cryptonite
+                   , cardano-binary
+                   , cardano-prelude
                    , containers
+                   , memory
