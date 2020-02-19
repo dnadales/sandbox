@@ -1,0 +1,16 @@
+name:                lookups-memory-usage
+version:             0.1.0.0
+synopsis:            Memory usage benchmarks for map construction and lookup.
+description:         X
+license:             Apache
+author:              Damian Nadales
+maintainer:          damian.nadales@gmail.com
+build-type:          Simple
+cabal-version:       >=1.10
+
+test-suite lookup
+  main-is:           Main.hs
+  hs-source-dirs:    src
+  type:              exitcode-stdio-1.0
+  build-depends:     base >=4.11 && <5
+                   , containers
