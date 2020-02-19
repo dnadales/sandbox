@@ -14,8 +14,9 @@ test-suite lookup
   type:              exitcode-stdio-1.0
   build-depends:     base >=4.11 && <5
                    , bytestring
-                   , cryptonite
                    , cardano-binary
                    , cardano-prelude
+                   , cereal
                    , containers
+                   , cryptonite
                    , memory

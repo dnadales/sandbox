@@ -9,7 +9,7 @@ import qualified Data.Map.Strict as Map
 import qualified Crypto.Hash as H
 import           Data.ByteString (ByteString)
 import qualified Data.ByteArray as BA
-
+import           Data.Serialize (encode)
 
 import           Cardano.Binary (serialize')
 import           Cardano.Prelude (noUnexpectedThunks)
@@ -22,7 +22,7 @@ main = do
   where
     n = 10^6
     theHashOf :: Int -> ByteString
-    theHashOf = serialize'
+    theHashOf = encode
     result = Map.lookup (theHashOf n) stakeDist
     stakeDist :: Map ByteString Int
     !stakeDist = Map.fromList
