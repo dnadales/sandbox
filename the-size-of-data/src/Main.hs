@@ -1,15 +1,22 @@
+{-# LANGUAGE BangPatterns #-}
 
 module Main where
 
-import           Cardano.Prelude (buildAndRenderClosureTree
+import qualified Data.Text as T
+import           Text.Pretty.Simple (pPrint)
+import           Cardano.Prelude (buildAndRenderClosureTree, force, ($!!), deepseq
                    , ClosureTreeOptions (ClosureTreeOptions), ctoMaxDepth
-                   , ctoCyclicClosures
+                   , ctoCyclicClosures, buildClosureTree
                    , TraverseCyclicClosures (TraverseCyclicClosures)
-                   , TreeDepth (AnyDepth))
+                   , TreeDepth (AnyDepth), renderTree)
 
 main :: IO ()
-main = print "" >> buildAndRenderClosureTree opts "bar" >>= print
+main = do
+  Just t <- buildClosureTree opts $!! bar
+  pPrint t
+  pPrint $ renderTree t (T.pack . show)
   where
+    bar = "bar"
     opts = ClosureTreeOptions
            { ctoMaxDepth = AnyDepth
            , ctoCyclicClosures = TraverseCyclicClosures
