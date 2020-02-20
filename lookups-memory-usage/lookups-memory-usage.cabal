@@ -1,7 +1,6 @@
 name:                lookups-memory-usage
 version:             0.1.0.0
 synopsis:            Memory usage benchmarks for map construction and lookup.
-description:         X
 license:             Apache
 author:              Damian Nadales
 maintainer:          damian.nadales@gmail.com
@@ -20,3 +19,4 @@ test-suite lookup
                    , containers
                    , cryptonite
                    , memory
+  default-language:    Haskell2010
