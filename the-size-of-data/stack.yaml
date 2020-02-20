@@ -1,0 +1,11 @@
+resolver: https://raw.githubusercontent.com/input-output-hk/cardano-prelude/cb54482c7e3d45f6c1aac490dc937ed835de0333/snapshot.yaml
+
+extra-deps:
+  - git: https://github.com/input-output-hk/cardano-prelude
+    commit: cb54482c7e3d45f6c1aac490dc937ed835de0333
+
+  - git: https://github.com/input-output-hk/cardano-base
+    commit: 0fcb3a306e96ce36fca75d62792c55ab1de871ea
+    subdirs:
+      - binary
+      - cardano-crypto-class
