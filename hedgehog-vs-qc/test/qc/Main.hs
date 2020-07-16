@@ -233,3 +233,29 @@ instance Arbitrary TreeList where
 
 prop_treeList :: TreeList -> Bool
 prop_treeList (TreeList (Node (List { list }) _)) = length list < 5
+
+--------------------------------------------------------------------------------
+-- TODO: tmp, playing with shrinking of products
+--------------------------------------------------------------------------------
+
+-- See: https://stackoverflow.com/q/14006005/2289983
+
+-- data AB = AB { getA :: Int, getB :: Char, getC :: Double }
+--   deriving (Eq, Show)
+
+-- instance Arbitrary AB where
+--   arbitrary = AB <$> arbitrary <*> arbitrary <*> arbitrary
+
+--   shrink (AB a b c) = getSuccs $ AB <$> elemAndShrinks a
+--                                     <*> elemAndShrinks b
+--                                     <*> elemAndShrinks c
+
+-- elemAndShrinks :: Arbitrary a => a -> Succs a
+-- elemAndShrinks a = Succs a (shrink a)
+
+-- shrink $ AB 0 'c'
+-- >>> []
+
+--------------------------------------------------------------------------------
+-- END TODO: tmp, playing with shrinking of products
+--------------------------------------------------------------------------------
