@@ -53,6 +53,12 @@ result/bin/spec
 Why? Test the build and run the tests locally. Use the build tools we have at
 our disposal, plus some additional tools we might need.
 
+Before running the shell do a dry run:
+
+```sh
+nix-build shell.nix --dry-run
+```
+
 # Install and configure direnv
 
 # Install and configure lorri
