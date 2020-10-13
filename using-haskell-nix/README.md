@@ -2,8 +2,6 @@ This is a tutorial on how to setup a Haskell project using Nix.
 
 # Creating the .gitignore
 
-
-
 # Setting up the cabal project
 
 See [haskell-nix-demo](./haskell-nix-demo.cabal "cabal file").
@@ -50,12 +48,23 @@ Run the tests
 result/bin/spec
 ```
 
+# Add a nix shell
+
+Why? Test the build and run the tests locally. Use the build tools we have at
+our disposal, plus some additional tools we might need.
+
 # Install and configure direnv
 
 # Install and configure lorri
 
 # Using ghcid
 
+# Questions
+
+## When is GHC built?
+
+Why did `nix-shell` (re)built GHC? Why isn't this cached and why did building
+width `nix` build did not rebuild GHC.
 
 [0]: https://input-output-hk.github.io/haskell.nix/tutorials/getting-started/
 [1]: https://input-output-hk.github.io/haskell.nix/tutorials/hackage-stackage/#updating-and-pinning-hackagenix-and-stackagenix
