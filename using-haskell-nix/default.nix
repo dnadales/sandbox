@@ -15,6 +15,10 @@ let
   # It is important that the haskell language server and the haskell project
   # use the same GHC version.
   compiler-nix-name = "ghc8102";
+  # If you're using an up to date version of `haskell-nix` the `hls` definition
+  # below is not needed since you can use the version provided there (see
+  # "tools" section below). However this serves as an example on how one could
+  # provide extra tools to the nix environment if they are not in `haskell-nix`
   hls =
     pkgs.haskell-nix.cabalProject {
       inherit compiler-nix-name;
@@ -68,10 +72,17 @@ rec {
 
         # You might want some extra tools in the shell (optional).
 
-        # Some common tools can be added with the `tools` argument
+        # Some common tools can be added with the `tools` argument.
+        #
         tools = {
           cabal = "3.2.0.0";
           hlint = "2.2.11";
+          # If you're using a recent version of `haskell-nix` you could simply
+          # use:
+          #
+          # haskell-language-server = "0.5.1";
+          #
+          # and remove hls from the `buildInputs` below.
         };
         # See overlays/tools.nix for more details
 
