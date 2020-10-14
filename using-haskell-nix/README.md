@@ -59,7 +59,6 @@ nix-build shell.nix --dry-run
 # Install and configure direnv
 
 
-
 # Install and configure lorri
 
 ```sh
@@ -71,6 +70,27 @@ direnv allow
 
 ```sh
 ghcid
+```
+
+# Installing haskell language server and configuring in emacs
+
+Set lsp-haskell-server-path
+
+Emacs configuration:
+
+```elisp
+;; direnv mode setup
+(use-package direnv
+ :config
+ (direnv-mode))
+;; We need direnv to execute before lsp starts. So we start lsp in deferred
+;; mode when opening haskell files.
+(use-package lsp-mode
+  :hook (haskell-mode . lsp-deferred)
+  :diminish lsp-mode
+  :commands (lsp lsp-deferred))
+(use-package lsp-ui)
+(use-package lsp-haskell)
 ```
 
 # Questions

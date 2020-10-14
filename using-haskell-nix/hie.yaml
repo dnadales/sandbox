@@ -1,0 +1,6 @@
+cradle:
+  cabal:
+    - path: "./src"
+      component: "lib:haskell-nix-demo"
+    - path: "./test"
+      component: "test:spec"
