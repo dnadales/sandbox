@@ -15,9 +15,6 @@ Make sure you have `nix` installed, and the cache configured as stated
 
 ```sh
 niv init
-niv add -n iohk-nixpkgs input-output-hk/nixpkgs
-niv add -n hackage-nix  input-output-hk/hackage.nix
-niv add -n stackage-nix input-output-hk/stackage.nix
 niv add -n haskell-nix  input-output-hk/haskell.nix
 ```
 
