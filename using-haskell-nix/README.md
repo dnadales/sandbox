@@ -58,9 +58,20 @@ nix-build shell.nix --dry-run
 
 # Install and configure direnv
 
+
+
 # Install and configure lorri
 
+```sh
+lorri init
+direnv allow
+```
+
 # Using ghcid
+
+```sh
+ghcid
+```
 
 # Questions
 
