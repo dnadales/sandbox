@@ -22,8 +22,7 @@ Go and look into the `sources.json` file.
 
 # Add a default nix file
 
-We will be pinning the hackage, stackage, and haskell.nix tarballs using the
-sources created by `niv`.
+We will be pinning the haskell.nix version using the sources created by `niv`.
 
 ## Using `sources.nix` in `default.nix`
 
