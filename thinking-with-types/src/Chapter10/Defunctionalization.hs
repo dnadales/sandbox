@@ -4,9 +4,20 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+-- Extensions required by type-level defunctionalization section
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeInType #-}
+{-# LANGUAGE TypeOperators #-}
+
 module Chapter10.Defunctionalization where
 
 import Prelude hiding (fst)
+
+-- Import required by type-level defunctionalization section
+import Data.Kind (Constraint, Type)
 
 fst :: (a, b) -> a
 fst (a, _) = a
@@ -50,3 +61,32 @@ instance Eval dfb dft => Eval (MapList dfb a) [dft] where
 --------------------------------------------------------------------------------
 -- Type level defunctionalization
 --------------------------------------------------------------------------------
+type Exp a = a -> Type
+
+type family EvalE (e :: Exp a) :: a
+
+data Snd :: (a, b) -> Exp b
+
+type instance EvalE (Snd '(a, b)) = b
+
+-- Try this out!
+--
+-- >   λ  :set -XDataKinds
+-- >   λ  :kind EvalE (Snd '(1, "hello"))
+-- > EvalE (Snd '(1, "hello")) :: ghc-prim-0.5.3:GHC.Types.Symbol
+-- >   λ  :kind! EvalE (Snd '(1, "hello"))
+-- > EvalE (Snd '(1, "hello")) :: ghc-prim-0.5.3:GHC.Types.Symbol
+-- > = "hello"
+
+data FromMaybe :: a -> Maybe a -> Exp a
+type instance EvalE (FromMaybe _1 ('Just a)) = a
+type instance EvalE (FromMaybe a 'Nothing  ) = a
+
+-- | Exercise 10.2-i: defunctionalize 'listToMaybe' at the type level.
+data ListToMaybeE :: [a] -> Exp (Maybe a)
+type instance EvalE (ListToMaybeE '[]) = 'Nothing
+type instance EvalE (ListToMaybeE (t ': _ts)) = 'Just t
+
+data MapListE :: (a -> Exp b) -> [a] -> Exp [b]
+type instance EvalE (MapListE f '[]) = '[]
+type instance EvalE (MapListE f (t ': ts)) = EvalE (f t) ': EvalE (MapListE f ts)
