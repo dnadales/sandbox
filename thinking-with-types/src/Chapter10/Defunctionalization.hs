@@ -90,3 +90,29 @@ type instance EvalE (ListToMaybeE (t ': _ts)) = 'Just t
 data MapListE :: (a -> Exp b) -> [a] -> Exp [b]
 type instance EvalE (MapListE f '[]) = '[]
 type instance EvalE (MapListE f (t ': ts)) = EvalE (f t) ': EvalE (MapListE f ts)
+
+-- Try this out!
+--
+-- > :kind! EvalE (MapList (FromMaybe 0)) ['Nothing, ('Just 1)]
+-- EvalE (MapListE (FromMaybe 0) ['Nothing, ('Just 1)]) :: [ghc-prim-0.5.3:GHC.Types.Nat]
+-- = '[0, 1]
+
+-- | Exercise 10.2-ii: Defunctionalize 'foldr'
+data FoldR :: (a -> b -> Exp b) -> b -> [a] -> Exp b
+type instance EvalE (FoldR _f b '[]) = b
+type instance EvalE (FoldR f b (t ': ts)) = EvalE (f t (EvalE (FoldR f b ts)))
+
+data Cons :: a -> [a] -> Exp [a]
+type instance EvalE (Cons a '[]) = '[a]
+type instance EvalE (Cons a as)  = a ': as
+
+-- Try this out!
+--
+-- >   λ  :kind! EvalE (FoldR Cons '[] '[Int, Bool])
+-- > EvalE (FoldR Cons '[] '[Int, Bool]) :: [*]
+-- > = '[Int, Bool]
+-- >  λ  :kind! EvalE (FoldR Cons '[] ['Nothing, ('Just 1)])
+-- > EvalE (FoldR Cons '[] ['Nothing, ('Just 1)]) :: [Maybe
+-- >                                                   ghc-prim-0.5.3:GHC.Types.Nat]
+-- > = '[ 'Nothing, 'Just 1]
+--
