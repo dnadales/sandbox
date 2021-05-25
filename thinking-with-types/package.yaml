@@ -8,6 +8,7 @@ copyright:           "Copyright: (c) 2018 Damian Nadales"
 
 dependencies:
 - base >= 4.7 && < 5
+- first-class-families
 
 ghc-options:
   - -Wall
