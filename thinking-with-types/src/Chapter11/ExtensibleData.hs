@@ -20,6 +20,8 @@ import Data.Proxy
 import GHC.TypeLits hiding (type (+))
 import Unsafe.Coerce
 
+import Data.Functor.Identity
+
 import Fcf
 
 data OpenSum (f :: k -> Type) (ts :: [k]) where
@@ -27,6 +29,19 @@ data OpenSum (f :: k -> Type) (ts :: [k]) where
     :: Int
     -> f t
     -> OpenSum f ts
+
+-- It is useful to be able to show the open sums, so we define an instance
+-- for the terms of this type.
+
+instance (Show (f t), Show (OpenSum f ts)) => Show (OpenSum f (t ': ts)) where
+  show x =
+    case decompose x of
+      Left ft  -> show ft
+      Right x' -> show x'
+
+
+instance (Show (OpenSum f '[])) where
+  show _ = "[]"
 
 -- | Find element tries to find a kind @k@ in @ts@.
 type FindElem (key :: k) (ts :: [k]) =
@@ -68,6 +83,9 @@ inj = UnsafeOpenSum (findElem @t @ts)
 -- >>> prj x :: Maybe (Identity String)
 -- Just (Identity "hello")
 --
+-- >>> prj x :: Maybe (Identity Int)
+--
+--
 -- If you don't specify the existential type, GHC will not know what @t@ should be.
 --
 -- >>> prj x
@@ -82,3 +100,40 @@ prj (UnsafeOpenSum i ft) =
   if i == findElem @t @ts
   then Just $ unsafeCoerce ft
   else Nothing
+
+-- | Reduce an open sum regardless of what's inside it.
+--
+-- >>> decompose x
+decompose
+  :: OpenSum f (t ': ts)
+  -> Either (f t) (OpenSum f ts)
+decompose (UnsafeOpenSum 0 ft) = Left  $ unsafeCoerce ft
+decompose (UnsafeOpenSum n ft) = Right $ UnsafeOpenSum (n - 1) ft
+
+-- | Exercise 11.2-i: write 'weaken'
+weaken :: OpenSum f ts -> OpenSum f (x ': ts)
+weaken (UnsafeOpenSum n ft) =
+  -- The type of the open sum is in position @n@ in @ts@, which means that is
+  -- in position @n + 1@ in @t ': ts@.
+  UnsafeOpenSum (n + 1) ft
+
+hello :: OpenSum Identity '[String]
+hello = inj (Identity "hello")
+
+answer :: OpenSum Identity '[Int]
+answer = inj (Identity (42 :: Int))
+
+openlist :: [OpenSum Identity '[Int, String]]
+openlist = [ weaken hello
+           , inj (Identity (42 :: Int))
+           ] -- , weaken answer] This won't work because the type list will not
+             -- be the same: weaken answer will give you the '[x, Int] type,
+             -- instead of '[Int, String].
+
+-- | Perform the same logic regardless of what's inside an @OpenSum@.
+match
+  :: forall f ts b
+   . (forall t . f t -> b)
+  -> OpenSum f ts
+  -> b
+match g (UnsafeOpenSum _ ft) = g ft
