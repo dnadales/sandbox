@@ -59,13 +59,16 @@ openProduct1 = insert (Key @"another") (Just True) openProduct0
 openProduct2 :: OpenProduct Maybe '[ '("key", Bool), '("key", String) ]
 openProduct2 = insert (Key @"key") (Just True) openProduct0
 
-instance Show (Any f) => Show (OpenProduct f ts) where
-  show (OpenProduct vs) = concat $ fmap show vs
+data Collapse :: [Constraint] -> Exp Constraint
+type instance Eval (Collapse '[]) = (() :: Constraint)
+type instance Eval (Collapse (c ': cs)) = (c, Eval (Collapse cs))
 
--- QUESTION: how can we define an any instance?
---
--- instance (forall t . Show (f t)) => Show (Any f) where
---   show (Any ft) = show ft
+
+type AllSatisfy (c :: k -> Constraint) (ts :: [k]) = Collapse =<< Map (Pure1 c) ts
+
+-- QUESTION: how can we define a 'Show' instance for the OpenProduct?
+instance Eval (AllSatisfy Show (Eval (Map Snd ts))) => Show (OpenProduct f ts) where
+  show (OpenProduct vs) = concat $ fmap (show . unAny)  vs
 
 -- | Type family that computes whether a key would be unique.
 type UniqueKey (key :: Symbol) (ts :: [(Symbol, t)])
@@ -104,6 +107,10 @@ insert' = insert
 -- • Couldn't match type ‘'False’ with ‘'True’
 --     arising from a use of ‘insert'’
 -- • In the expression: insert' (Key @"key") (Just True) openProduct0
+--
+-- >>> :t insert (Key @"key") (Just True) openProduct0
+-- insert (Key @"key") (Just True) openProduct0
+--  :: OpenProduct Maybe '[ '("key", Bool), '("key", String)]
 
 type FindElem (key :: Symbol) (ts :: [(Symbol, t)])
   = Eval (FromMaybe Stuck =<< FindIndex (TyEq key <=< Fst) ts)
@@ -187,3 +194,51 @@ type DeleteElement (key :: Symbol) (ts :: [(Symbol, k)])
 --     • In the expression: delete (Key @"notHere")
 --       In the expression: delete (Key @"notHere") $ openProduct0
 --
+
+upsert
+  :: forall key f t ts
+   . MaybeKnownNat (FindElemMaybe key ts)
+  => Key key
+  -> f t
+  -> OpenProduct f ts
+  -> OpenProduct f (Eval (UpsertElem key t ts))
+upsert _ ft (OpenProduct vs) =
+ case findElemMaybe @key @ts of
+   Nothing -> OpenProduct $ V.cons (Any ft) vs
+   Just i  -> OpenProduct $ vs // [(i, Any ft)]
+
+-- Try this out!
+--
+-- >>> :t upsert (Key @"key") (Just "bye") openProduct0
+-- upsert (Key @"key") (Just "bye") openProduct0
+--  :: Data.String.IsString t => OpenProduct Maybe '[ '("key", t)]
+--
+-- >>> :t upsert (Key @"anotherKey") (Just "bye") openProduct0
+-- upsert (Key @"anotherKey") (Just "bye") openProduct0
+--   :: Data.String.IsString t =>
+--      OpenProduct Maybe '[ '("anotherKey", t), '("key", String)]
+
+findElemMaybe
+  :: forall key ts
+  . MaybeKnownNat (FindElemMaybe key ts)
+ => Maybe Int
+findElemMaybe = fmap fromIntegral $ maybeNatVal @(FindElemMaybe key ts)
+
+class MaybeKnownNat (mn :: Maybe Nat) where
+  maybeNatVal :: Maybe Integer
+
+instance MaybeKnownNat ('Nothing) where
+  maybeNatVal = Nothing
+
+instance KnownNat n => MaybeKnownNat ('Just n) where
+  maybeNatVal = Just . fromIntegral . natVal $ Proxy @n
+
+-- | Find the index of the given key in the type list, or return 0 if no such
+-- key exists.
+type FindElemMaybe (key :: Symbol) (ts :: [(Symbol, k)])
+  = Eval (FindIndex (TyEq key <=< Fst) ts)
+
+data SetIndex' :: a -> [a] -> Nat -> Exp [a]
+
+type UpsertElem (key :: Symbol) (t :: k) (ts :: [(Symbol, k)]) =
+  UnMaybe ('[ '(key, t) ] ++ ts) (SetIndex' '(key, t) ts) (FindElemMaybe key ts)
