@@ -12,7 +12,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Chapter11.ExtensibleData where
+module Chapter11.OpenSums where
 
 import Data.Kind (Type)
 import Data.Proxy
