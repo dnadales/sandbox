@@ -66,9 +66,15 @@ type instance Eval (Collapse (c ': cs)) = (c, Eval (Collapse cs))
 
 type AllSatisfy (c :: k -> Constraint) (ts :: [k]) = Collapse =<< Map (Pure1 c) ts
 
--- QUESTION: how can we define a 'Show' instance for the OpenProduct?
-instance Eval (AllSatisfy Show (Eval (Map Snd ts))) => Show (OpenProduct f ts) where
-  show (OpenProduct vs) = concat $ fmap (show . unAny)  vs
+-- QUESTION: why this trick works for heterogeneous lists but not with open products?
+--
+-- instance Eval (AllSatisfy Show (Eval (Map Snd ts))) => Show (OpenProduct f ts) where
+--   show (OpenProduct vs) = concat $ fmap (show . unAny)  vs
+
+instance (Show (OpenProduct f ts), Show (f t)) => Show (OpenProduct f ('(s, t) ': ts)) where
+  show (OpenProduct vs) =
+    (show $ unAny @f @t $ V.unsafeHead vs) ++ show (OpenProduct @f @ts $ V.unsafeTail vs)
+    -- TODO: do recursion, define show instance for empty vectors.
 
 -- | Type family that computes whether a key would be unique.
 type UniqueKey (key :: Symbol) (ts :: [(Symbol, t)])
@@ -242,3 +248,15 @@ data SetIndex' :: a -> [a] -> Nat -> Exp [a]
 
 type UpsertElem (key :: Symbol) (t :: k) (ts :: [(Symbol, k)]) =
   UnMaybe ('[ '(key, t) ] ++ ts) (SetIndex' '(key, t) ts) (FindElemMaybe key ts)
+
+--------------------------------------------------------------------------------
+-- Overloaded labels
+--------------------------------------------------------------------------------
+
+instance (key ~ key') => IsLabel key (Key key') where
+  fromLabel = Key
+
+-- Try this out!
+
+openProduct10 :: OpenProduct Maybe '[ '("key", String) ]
+openProduct10 = insert #key (Just "hello") nil
