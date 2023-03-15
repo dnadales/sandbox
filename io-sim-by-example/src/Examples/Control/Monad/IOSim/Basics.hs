@@ -10,9 +10,9 @@ import           Control.Monad.IOSim          (IOSim, SimTrace, ppTrace,
 
 -- Very simple example
 --
-example :: MonadSay m => m ()
-example = do
-  say "Hello World"
+sayHello :: MonadSay m => m ()
+sayHello = do
+  say "Hello World!"
 
 -- | Running an example will produce a trace, which we will convert to 'String'.
 run

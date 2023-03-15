@@ -1,10 +1,10 @@
 module Main (main) where
 
-import           Examples.Control.Monad.IOSim.Basics (example, run)
+import           Examples.Control.Monad.IOSim.Basics (run, sayHello)
 
 main :: IO ()
 main = do
   putStrLn "Example run with simulated IO: "
-  putStrLn $ run example
+  putStrLn $ run sayHello
   putStrLn "Example run with actual IO: "
-  example
+  sayHello

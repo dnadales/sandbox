@@ -4,6 +4,25 @@ version:       0.1.0.0
 synopsis:      Examples on how to use io-sim
 build-type:    Simple
 
+test-suite test
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   test
+  default-language: Haskell2010
+  main-is:          Main.hs
+  build-depends:
+    , base
+    , io-sim-by-example
+    , io-sim
+    , QuickCheck
+    , tasty
+    , tasty-quickcheck
+
+  ghc-options:
+    -threaded -rtsopts -Wall -Wno-unticked-promoted-constructors
+    -Wcompat -Wincomplete-uni-patterns -Wincomplete-record-updates
+    -Wpartial-fields -Widentities -Wredundant-constraints
+    -Wunused-packages
+
 library
   hs-source-dirs:   src
   exposed-modules:  Examples.Control.Monad.IOSim.Basics
