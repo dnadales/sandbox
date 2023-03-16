@@ -11,8 +11,9 @@ test-suite test
   main-is:          Main.hs
   build-depends:
     , base
-    , io-sim-by-example
+    , contra-tracer
     , io-sim
+    , io-sim-by-example
     , QuickCheck
     , tasty
     , tasty-quickcheck
@@ -44,6 +45,8 @@ executable io-sim-by-example
   main-is:        Main.hs
   build-depends:
     , base
+    , contra-tracer
+    , io-classes
     , io-sim
     , io-sim-by-example
 

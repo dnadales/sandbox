@@ -2,8 +2,12 @@ module Main where
 
 import           Control.Monad.IOSim                 (SimEventType (EventSay),
                                                       SimTrace, ppTrace,
-                                                      runSimTrace, traceEvents)
-import           Examples.Control.Monad.IOSim.Basics (sayHello)
+                                                      runSimTrace,
+                                                      selectTraceEventsDynamic,
+                                                      traceEvents, traceM)
+import           Control.Tracer                      (Tracer (..), emit)
+import           Examples.Control.Monad.IOSim.Basics (MyTrace (TraceValue),
+                                                      sayHello, traceAValue)
 import           Test.QuickCheck                     (Property, (===))
 import           Test.Tasty                          (TestTree, defaultMain,
                                                       testGroup)
@@ -15,7 +19,9 @@ main = defaultMain tests
 
 tests :: TestTree
 tests =
-  testGroup "Examples" [testProperty "Says hello" prop_saysHello]
+  testGroup "Examples" [ testProperty "Says hello"      prop_saysHello
+                       , testProperty "Traces my value" prop_tracesMyValue
+                       ]
 
 -- | For the 'sayHello' example we test that the "Hello World" string is
 -- actually output.
@@ -47,4 +53,8 @@ prop_saysHello = lookForExactly1HelloWorld simEvents
 
     failProp = counterexample (ppTrace trace) False
 
-
+prop_tracesMyValue :: Int -> Property
+prop_tracesMyValue i = trace === [TraceValue i]
+  where
+    trace :: [MyTrace]
+    trace = selectTraceEventsDynamic $ runSimTrace $ traceAValue (Tracer $ emit traceM) i
