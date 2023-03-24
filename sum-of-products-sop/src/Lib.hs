@@ -9,6 +9,7 @@
 
 module Lib where
 
+import           Data.Kind   (Type)
 import           Data.SOP
 import           Data.SOP.NP
 
@@ -34,13 +35,24 @@ data instance Version Byron = ByronVersion
 -- Shelley era definitnions
 --------------------------------------------------------------------------------
 
-data instance Version Shelley = ShelleyVersion
+data family ShelleyBased era :: Type
+
+data instance Version (ShelleyBased era) = ShelleyVersion (EraSpecific era)
+
+type family EraSpecific era :: Type
+
+data ShelleySpecific = ShelleySpecific
+
+type instance EraSpecific Shelley = ShelleySpecific
+
 
 --------------------------------------------------------------------------------
 -- Allegra era definitnions
 --------------------------------------------------------------------------------
 
-data instance Version Allegra = AllegraVersion
+data AllegraSpecific = AllegraSpecific
+
+type instance EraSpecific Allegra = AllegraSpecific
 
 --------------------------------------------------------------------------------
 -- MyShow
@@ -52,18 +64,21 @@ class MyShow a where
 instance MyShow (Version Byron) where
   myShow _ = "Version Byron"
 
-instance MyShow (Version Shelley) where
+instance MyShow (Version (ShelleyBased Shelley)) where
   myShow _ = "Version Shelley"
 
-instance MyShow (Version Allegra) where
+instance MyShow (Version (ShelleyBased Allegra)) where
   myShow _ = "Version Allegra"
 
 --------------------------------------------------------------------------------
 -- Cardano
 --------------------------------------------------------------------------------
 
-cardanoVersions :: NP Version [Byron, Shelley, Allegra]
-cardanoVersions = ByronVersion :* ShelleyVersion :* AllegraVersion :* Nil
+cardanoVersions :: NP Version [Byron, ShelleyBased Shelley, ShelleyBased Allegra]
+cardanoVersions =  ByronVersion
+                :* ShelleyVersion ShelleySpecific
+                :* ShelleyVersion AllegraSpecific
+                :* Nil
 
 -- showCardanoVersions :: [String]
 -- showCardanoVersions = hcollapse npCardanoVersions
